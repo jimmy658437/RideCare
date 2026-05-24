@@ -1,0 +1,33 @@
+{
+  "originHash" : "23cde309a00f6899dfb2b63bbfedd9eb38bf85d21d2c8920ecabaacee0f1b84c",
+  "pins" : [
+    {
+      "identity" : "kingfisher?utm_source=chatgpt.com",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/onevcat/Kingfisher?utm_source=chatgpt.com",
+      "state" : {
+        "revision" : "cf8be20d07654570554c8a8a4952bc8a5766a8b0",
+        "version" : "8.9.0"
+      }
+    },
+    {
+      "identity" : "pow?utm_source=chatgpt.com",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/EmergeTools/Pow?utm_source=chatgpt.com",
+      "state" : {
+        "revision" : "1b4b1dda28c50b95f0872927ee2226fe8b58950e",
+        "version" : "1.0.6"
+      }
+    },
+    {
+      "identity" : "swiftui-introspect?utm_source=chatgpt.com",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/siteline/swiftui-introspect?utm_source=chatgpt.com",
+      "state" : {
+        "revision" : "26986a57e31c813f98262ddb62d4b07d40008535",
+        "version" : "26.0.1"
+      }
+    }
+  ],
+  "version" : 3
+}

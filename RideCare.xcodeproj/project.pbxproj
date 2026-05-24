@@ -6,6 +6,13 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		FB7258962FC1EE6E00590F01 /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = FB7258952FC1EE6E00590F01 /* Kingfisher */; };
+		FB72589D2FC1EE9900590F01 /* SwiftUIIntrospect-Static in Frameworks */ = {isa = PBXBuildFile; productRef = FB72589C2FC1EE9900590F01 /* SwiftUIIntrospect-Static */; };
+		FB7258A02FC1EEBE00590F01 /* Pow in Frameworks */ = {isa = PBXBuildFile; productRef = FB72589F2FC1EEBE00590F01 /* Pow */; };
+		FB7259012FC1F41000590F01 /* SwiftUIIntrospect in Frameworks */ = {isa = PBXBuildFile; productRef = FB7259002FC1F41000590F01 /* SwiftUIIntrospect */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		FB7258862FC1EE4400590F01 /* RideCare.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RideCare.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -23,6 +30,10 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FB7258A02FC1EEBE00590F01 /* Pow in Frameworks */,
+				FB7258962FC1EE6E00590F01 /* Kingfisher in Frameworks */,
+				FB72589D2FC1EE9900590F01 /* SwiftUIIntrospect-Static in Frameworks */,
+				FB7259012FC1F41000590F01 /* SwiftUIIntrospect in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -33,6 +44,7 @@
 			isa = PBXGroup;
 			children = (
 				FB7258882FC1EE4400590F01 /* RideCare */,
+				FB7258FF2FC1F41000590F01 /* Frameworks */,
 				FB7258872FC1EE4400590F01 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -43,6 +55,13 @@
 				FB7258862FC1EE4400590F01 /* RideCare.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		FB7258FF2FC1F41000590F01 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -65,6 +84,10 @@
 			);
 			name = RideCare;
 			packageProductDependencies = (
+				FB7258952FC1EE6E00590F01 /* Kingfisher */,
+				FB72589C2FC1EE9900590F01 /* SwiftUIIntrospect-Static */,
+				FB72589F2FC1EEBE00590F01 /* Pow */,
+				FB7259002FC1F41000590F01 /* SwiftUIIntrospect */,
 			);
 			productName = RideCare;
 			productReference = FB7258862FC1EE4400590F01 /* RideCare.app */;
@@ -82,6 +105,7 @@
 				TargetAttributes = {
 					FB7258852FC1EE4400590F01 = {
 						CreatedOnToolsVersion = 26.5;
+						LastSwiftMigration = 2650;
 					};
 				};
 			};
@@ -94,6 +118,11 @@
 			);
 			mainGroup = FB72587D2FC1EE4400590F01;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				FB7258942FC1EE6E00590F01 /* XCRemoteSwiftPackageReference "Kingfisher" */,
+				FB7258972FC1EE9900590F01 /* XCRemoteSwiftPackageReference "swiftui-introspect" */,
+				FB72589E2FC1EEBE00590F01 /* XCRemoteSwiftPackageReference "Pow" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = FB7258872FC1EE4400590F01 /* Products */;
 			projectDirPath = "";
@@ -249,6 +278,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -269,6 +299,8 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -280,6 +312,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
@@ -300,6 +333,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -328,6 +362,56 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		FB7258942FC1EE6E00590F01 /* XCRemoteSwiftPackageReference "Kingfisher" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/onevcat/Kingfisher?utm_source=chatgpt.com";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 8.9.0;
+			};
+		};
+		FB7258972FC1EE9900590F01 /* XCRemoteSwiftPackageReference "swiftui-introspect" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/siteline/swiftui-introspect?utm_source=chatgpt.com";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 26.0.1;
+			};
+		};
+		FB72589E2FC1EEBE00590F01 /* XCRemoteSwiftPackageReference "Pow" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/EmergeTools/Pow?utm_source=chatgpt.com";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.6;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		FB7258952FC1EE6E00590F01 /* Kingfisher */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB7258942FC1EE6E00590F01 /* XCRemoteSwiftPackageReference "Kingfisher" */;
+			productName = Kingfisher;
+		};
+		FB72589C2FC1EE9900590F01 /* SwiftUIIntrospect-Static */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB7258972FC1EE9900590F01 /* XCRemoteSwiftPackageReference "swiftui-introspect" */;
+			productName = "SwiftUIIntrospect-Static";
+		};
+		FB72589F2FC1EEBE00590F01 /* Pow */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB72589E2FC1EEBE00590F01 /* XCRemoteSwiftPackageReference "Pow" */;
+			productName = Pow;
+		};
+		FB7259002FC1F41000590F01 /* SwiftUIIntrospect */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = FB7258972FC1EE9900590F01 /* XCRemoteSwiftPackageReference "swiftui-introspect" */;
+			productName = SwiftUIIntrospect;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = FB72587E2FC1EE4400590F01 /* Project object */;
 }
