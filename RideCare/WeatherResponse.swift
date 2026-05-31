@@ -1,3 +1,11 @@
+//
+//  WeatherResponse.swift
+//  RideCare
+//
+//  Created by 114-2Workshop12 on 2026/5/31.
+//
+
+
 import Foundation
 
 struct WeatherResponse: Codable {

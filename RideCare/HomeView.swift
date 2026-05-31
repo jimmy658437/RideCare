@@ -19,6 +19,8 @@ struct HomeView: View {
     @State private var showUpdateMileage = false
     @State private var showAIAdvisor = false // 控制 AI 健檢頁面彈出
     @State private var newMileageInput = ""
+    @StateObject
+    private var weatherVM = WeatherViewModel()
     
     // 控制呼吸光暈的狀態
     @State private var isCriticalGlow = false
@@ -29,6 +31,8 @@ struct HomeView: View {
     @AppStorage("maintenanceInterval") private var maintenanceInterval = 1000.0
     @AppStorage("selectedWeatherTab") private var isRainyDaySelection = false // 晴雨天狀態保存
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
+    @AppStorage("homeCity")
+    private var homeCity = "Taipei"
 
     // 篩選當前天氣選中的裝備
     var currentGearList: [EquipmentItem] {
@@ -41,17 +45,28 @@ struct HomeView: View {
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
+
                     headerView
+
+                    weatherCard
+
                     mileageCard
-                    maintenanceAlertCard // 包含呼吸燈與閃光特效的保養進度條
-                    aiAdvisorButton      // Apple Intelligence 風格的 AI 健檢按鈕
-                    gearChecklistCard    // 今日裝備防呆（連動晴雨天）
+
+                    maintenanceAlertCard
+
+                    aiAdvisorButton
+
+                    gearChecklistCard
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
             }
         }
         .navigationBarHidden(true)
+        .task {
+            weatherVM.city = homeCity
+            await weatherVM.fetchWeather()
+        }
         .sheet(isPresented: $showSettings) {
             SettingsSheet().modelContext(context)
         }
@@ -198,6 +213,110 @@ struct HomeView: View {
             .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
         }
     }
+    
+    private var weatherCard: some View {
+        
+        FloatingCard {
+            
+            if UserDefaults.standard.string(
+                forKey: "openWeatherAPIKey"
+            )?.isEmpty ?? true {
+
+                ContentUnavailableView(
+                    "尚未設定 API Key",
+                    systemImage: "key.fill",
+                    description: Text("請到設定頁面輸入 OpenWeatherMap API Key")
+                )
+
+            } else {
+
+                VStack(alignment: .leading, spacing: 16) {
+
+                    HStack {
+                        Label("即時天氣", systemImage: "cloud.sun.fill")
+                            .font(.headline)
+
+                        Spacer()
+
+                        if let icon = weatherVM.weatherIcon {
+
+                            AsyncImage(
+                                url: URL(
+                                    string: "https://openweathermap.org/img/wn/\(icon)@2x.png"
+                                )
+                            ) { image in
+
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+
+                            } placeholder: {
+
+                                ProgressView()
+                            }
+                            .frame(width: 45, height: 45)
+                        }
+                    }
+
+                    Text(weatherVM.city)
+                        .font(.title3)
+                        .fontWeight(.bold)
+
+                    if let temp = weatherVM.temperature {
+
+                        Text("\(String(format: "%.1f", temp))°C")
+                            .font(
+                                .system(
+                                    size: 42,
+                                    weight: .bold,
+                                    design: .rounded
+                                )
+                            )
+                            .foregroundStyle(AppTheme.primary)
+                    }
+
+                    if let description = weatherVM.weatherDescription {
+
+                        Text(description)
+                            .foregroundStyle(AppTheme.onSurfaceVariant)
+                    }
+
+                    Divider()
+
+                    HStack {
+
+                        VStack(alignment: .leading) {
+                            Text("體感")
+                            Text(
+                                "\(String(format: "%.1f", weatherVM.feelsLikeTemperature ?? 0))°C"
+                            )
+                            .fontWeight(.bold)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .leading) {
+                            Text("濕度")
+                            Text("\(weatherVM.humidity ?? 0)%")
+                                .fontWeight(.bold)
+                        }
+
+                        Spacer()
+
+                        VStack(alignment: .leading) {
+                            Text("風速")
+                            Text(
+                                "\(String(format: "%.1f", weatherVM.windSpeed ?? 0)) m/s"
+                            )
+                            .fontWeight(.bold)
+                        }
+                    }
+                }
+            }
+            
+            
+        }
+    }
 
     private var gearChecklistCard: some View {
         FloatingCard {
@@ -279,6 +398,10 @@ struct SettingsSheet: View {
     @AppStorage("username") private var username = "使用者"
     @AppStorage("maintenanceInterval") private var maintenanceInterval = 1000.0
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
+    @AppStorage("homeCity")
+    private var homeCity = "Taipei"
+    @AppStorage("openWeatherAPIKey")
+    private var openWeatherAPIKey = ""
     
     @State private var birthdaySelection = Date()
 
@@ -310,6 +433,57 @@ struct SettingsSheet: View {
                             .tint(AppTheme.primary)
                     }
                     .padding(.vertical, 4)
+                }
+                
+                Section("居住地") {
+
+                    Picker(
+                        "天氣地區",
+                        selection: $homeCity
+                    ) {
+
+                        Text("Taipei")
+                            .tag("Taipei")
+
+                        Text("New Taipei")
+                            .tag("New Taipei")
+
+                        Text("Taoyuan")
+                            .tag("Taoyuan")
+
+                        Text("Hsinchu")
+                            .tag("Hsinchu")
+
+                        Text("Taichung")
+                            .tag("Taichung")
+
+                        Text("Tainan")
+                            .tag("Tainan")
+
+                        Text("Kaohsiung")
+                            .tag("Kaohsiung")
+                    }
+                }
+                
+                Section("OpenWeatherMap") {
+
+                    SecureField(
+                        "輸入 API Key",
+                        text: $openWeatherAPIKey
+                    )
+
+                    Text("可至 OpenWeatherMap 官網申請免費 API Key")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if !openWeatherAPIKey.isEmpty {
+
+                        Label(
+                            "已儲存",
+                            systemImage: "checkmark.circle.fill"
+                        )
+                        .foregroundStyle(.green)
+                    }
                 }
             }
             .navigationTitle("系統設定")

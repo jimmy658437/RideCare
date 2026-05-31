@@ -1,4 +1,13 @@
+//
+//  WeatherViewModel.swift
+//  RideCare
+//
+//  Created by 114-2Workshop12 on 2026/5/31.
+//
+
+
 import Foundation
+import Combine
 
 @MainActor
 final class WeatherViewModel: ObservableObject {
@@ -14,9 +23,16 @@ final class WeatherViewModel: ObservableObject {
 
     @Published var city = "Taipei"
 
-    private let apiKey = "YOUR_API_KEY"
+    private var apiKey: String {
+        UserDefaults.standard.string(forKey: "openWeatherAPIKey") ?? ""
+    }
 
     func fetchWeather() async {
+        
+        guard !apiKey.isEmpty else {
+            print("OpenWeather API Key 尚未設定")
+            return
+        }
 
         guard let encodedCity =
             city.addingPercentEncoding(
@@ -49,17 +65,14 @@ final class WeatherViewModel: ObservableObject {
             windSpeed = result.wind.speed
             cloudiness = result.clouds.all
 
-            weatherIcon =
-            result.weather.first?.icon
-
-            weatherDescription =
-            result.weather.first?.description
+            weatherIcon = result.weather.first?.icon
+            weatherDescription = result.weather.first?.description
 
             city = result.name
 
         } catch {
 
-            print(error)
+            print("Weather Error:", error)
         }
     }
 }
