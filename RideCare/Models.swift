@@ -16,18 +16,17 @@ class FuelRecord {
     var mileage: Double
     var liters: Double
     var fuelType: String
+    var kmPerLiter: Double // 🌟 改為儲存屬性，方便圖表直接讀取
+    var cost: Double       // 🌟 新增該次加油總花費
     
-    init(id: UUID = UUID(), date: Date = Date(), mileage: Double, liters: Double, fuelType: String) {
+    init(id: UUID = UUID(), date: Date = Date(), mileage: Double, liters: Double, fuelType: String, kmPerLiter: Double = 0.0, cost: Double = 0.0) {
         self.id = id
         self.date = date
         self.mileage = mileage
         self.liters = liters
         self.fuelType = fuelType
-    }
-    
-    var kmPerLiter: Double {
-        guard liters > 0 else { return 0.0 }
-        return mileage / liters
+        self.kmPerLiter = kmPerLiter
+        self.cost = cost
     }
 }
 
