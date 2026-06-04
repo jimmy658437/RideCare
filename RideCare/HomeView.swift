@@ -308,7 +308,7 @@ struct HomeView: View {
                     Image(systemName: "checklist").foregroundStyle(
                         primaryThemeColor
                     )
-                    Text("今日裝備防呆").font(.title3).foregroundStyle(
+                    Text("裝備提醒").font(.title3).foregroundStyle(
                         AppTheme.onSurface
                     )
                     Spacer()

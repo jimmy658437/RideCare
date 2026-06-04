@@ -18,7 +18,6 @@ struct TripView: View {
     @AppStorage("selectedWeatherTab") private var isRainyDaySelection = false // 與首頁共用的晴雨狀態
     @State private var textInput = ""
     
-    // ✨ 新增 AI 狀態控管
     @State private var aiRecommendations: [String] = []
     @State private var isAILoading = false
 
@@ -64,7 +63,7 @@ struct TripView: View {
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("裝備庫管理").font(.title).fontWeight(.bold).foregroundStyle(AppTheme.onSurface)
-            Text("設定不同天氣出門時的防呆預設提醒").font(.subheadline).foregroundStyle(AppTheme.onSurfaceVariant)
+            Text("設定不同天氣出門時的預設裝備提醒").font(.subheadline).foregroundStyle(AppTheme.onSurfaceVariant)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.top, 10)
@@ -251,7 +250,7 @@ struct TripView: View {
         }
     }
     
-    // MARK: - ✨ AI Foundation Model 整合控制核心
+    // MARK: - ✨ Apple Foundation Model
     private func generateAIRecommendations() {
 
         isAILoading = true
@@ -302,9 +301,9 @@ struct TripView: View {
     // 💡 智慧離線推薦池（當 AI 尚未解析完成前，依據當前狀態提供高水準的裝備池組合）
     private func getSmartFallbackRecommendations() -> [String] {
         if isRainyDaySelection {
-            return ["防水背包套", "安全帽除霧劑", "防水手套", "大包塑膠袋"].shuffled().prefix(3).map { String($0) }
+            return ["防水背包套", "安全帽除霧劑", "防水手套", "雨鞋"].shuffled().prefix(3).map { String($0) }
         } else {
-            return ["抗UV護目鏡", "騎士運動水壺", "手套透氣墊", "防曬貼片"].shuffled().prefix(3).map { String($0) }
+            return ["太陽眼鏡", "防曬乳", "涼感噴霧", "防曬衣"].shuffled().prefix(3).map { String($0) }
         }
     }
 }
