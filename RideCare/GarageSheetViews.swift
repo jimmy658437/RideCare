@@ -9,6 +9,7 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - AddFuelSheet
 import SwiftUI
 import SwiftData
 
@@ -24,11 +25,13 @@ struct AddFuelSheet: View {
     
     // 🌟 全域里程變數 (與 HomeView 連動)
     @AppStorage("currentMileage") private var globalCurrentMileage = 13500.0
+    // 🌟 引入設定頁的偏好油種
+    @AppStorage("gasType") private var preferredGasType = "95 無鉛汽油"
     
     @State private var date = Date()
     @State private var mileage = ""
     @State private var liters = ""
-    @State private var fuelType = "95"
+    @State private var fuelType = "95" // 預設值，隨後會被 onAppear 覆蓋
 
     var body: some View {
         NavigationStack {
@@ -44,6 +47,8 @@ struct AddFuelSheet: View {
                         Text("98").tag("98")
                     }
                     .pickerStyle(.segmented)
+                    // 支援全局強調色
+                    .tint(.accentColor)
                 }
             }
             .navigationTitle("新增加油紀錄")
@@ -51,18 +56,19 @@ struct AddFuelSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
+                        .tint(.primary) // 取消按鈕保持中性色
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("儲存") {
                         let currentMileage = Double(mileage) ?? 0
                         let currentLiters = Double(liters) ?? 0
                         
-                        // 🌟 1. 同步全域里程：如果輸入的里程高於首頁的總里程，就覆蓋它！
+                        // 1. 同步全域里程
                         if currentMileage > globalCurrentMileage {
                             globalCurrentMileage = currentMileage
                         }
                         
-                        // 🌟 2. 計算油耗 (找日期比當下選擇還舊的最新一筆紀錄)
+                        // 2. 計算油耗
                         let previousRecord = allRecords.filter { $0.date < date }.first
                         var calculatedKmPerLiter: Double = 0.0
                         
@@ -70,7 +76,7 @@ struct AddFuelSheet: View {
                             calculatedKmPerLiter = (currentMileage - prev.mileage) / currentLiters
                         }
                         
-                        // 🌟 3. 計算花費 (對應油種牌價 * 公升數)
+                        // 3. 計算花費
                         var calculatedCost: Double = 0.0
                         if let priceInfo = fuelService.prices.first(where: { $0.name.contains(fuelType) }) {
                             calculatedCost = priceInfo.price * currentLiters
@@ -89,6 +95,15 @@ struct AddFuelSheet: View {
                         try? context.save()
                         dismiss()
                     }
+                    .font(.headline)
+                    .tint(.accentColor) // 儲存按鈕套用全局強調色
+                }
+            }
+            .onAppear {
+                // 🌟 修正 Picker 預設選擇：精準擷取設定值的字首
+                let prefix = String(preferredGasType.prefix(2))
+                if ["92", "95", "98"].contains(prefix) {
+                    fuelType = prefix
                 }
             }
         }

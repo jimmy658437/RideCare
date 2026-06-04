@@ -13,6 +13,19 @@ import SwiftUI
 struct GarageView: View {
     @Environment(\.modelContext) private var context
     
+    // 🌟 引入設定頁的偏好設定
+    @AppStorage("gasType") private var preferredGasType = "95 無鉛汽油"
+    @AppStorage("themeColorHex") private var themeColorHex = "Blue" // 🌟 同步主題色字串
+    
+    // 🌟 將主題色字串轉換為 SwiftUI Color
+    private var currentThemeColor: Color {
+        if themeColorHex == "Default" {
+            return AppTheme.primary
+        } else {
+            return Color(hex: themeColorHex)
+        }
+    }
+    
     // 刪除加油紀錄
     private func deleteFuelRecord(_ record: FuelRecord) {
         context.delete(record)
@@ -68,10 +81,10 @@ struct GarageView: View {
                     .font(.title2.weight(.medium))
                     .foregroundStyle(AppTheme.onPrimary)
                     .frame(width: 60, height: 60)
-                    .background(AppTheme.primaryContainer)
+                    .background(currentThemeColor) // 🌟 FAB 套用動態主題色
                     .clipShape(RoundedRectangle(cornerRadius: 20))
                     .shadow(
-                        color: AppTheme.primary.opacity(0.3),
+                        color: currentThemeColor.opacity(0.4), // 🌟 陰影同步主題色
                         radius: 10,
                         y: 5
                     )
@@ -117,7 +130,7 @@ struct GarageView: View {
                 )
                 .foregroundStyle(
                     selection == 0
-                    ? AppTheme.primary : AppTheme.onSurfaceVariant
+                    ? currentThemeColor : AppTheme.onSurfaceVariant // 🌟 選取文字套用主題色
                 )
                 .clipShape(Capsule())
             
@@ -129,7 +142,7 @@ struct GarageView: View {
                 )
                 .foregroundStyle(
                     selection == 1
-                    ? AppTheme.primary : AppTheme.onSurfaceVariant
+                    ? currentThemeColor : AppTheme.onSurfaceVariant // 🌟 選取文字套用主題色
                 )
                 .clipShape(Capsule())
         }
@@ -152,27 +165,12 @@ struct GarageView: View {
             } else {
                 HStack(spacing: 12) {
                     ForEach(fuelService.prices) { fuel in
-                        VStack(spacing: 4) {
-                            Text(
-                                fuel.name.replacingOccurrences(
-                                    of: "無鉛汽油",
-                                    with: " 無鉛"
-                                )
-                            )
-                            .font(.caption2).foregroundStyle(
-                                AppTheme.onSurfaceVariant
-                            )
-                            Text("$\(fuel.price, specifier: "%.1f")")
-                                .font(.headline).fontWeight(.black)
-                                .foregroundStyle(AppTheme.primary)
-                        }
-                        .frame(maxWidth: .infinity).padding(.vertical, 12)
-                        .background(AppTheme.surfaceContainerLowest)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                        .shadow(
-                            color: AppTheme.outlineVariant.opacity(0.2),
-                            radius: 5,
-                            y: 2
+                        // 🌟 將動態主題色傳入獨立的卡片元件中
+                        FuelPriceCard(
+                            name: fuel.name,
+                            price: fuel.price,
+                            preferredGasType: preferredGasType,
+                            themeColor: currentThemeColor
                         )
                     }
                 }
@@ -184,7 +182,6 @@ struct GarageView: View {
     // 平均油耗趨勢折線圖
     @ViewBuilder
     private var fuelChartSection: some View {
-        // 過濾掉油耗為 0 的首筆資料
         let validRecords = fuelRecords.filter { $0.kmPerLiter > 0 }
         
         VStack(alignment: .leading, spacing: 10) {
@@ -193,13 +190,12 @@ struct GarageView: View {
                 .fontWeight(.bold)
                 .foregroundStyle(AppTheme.onSurfaceVariant)
             
-            // 🌟 折線圖至少需要 2 個點才能畫出線，若不足則顯示空狀態提示
             if validRecords.count < 2 {
                 FloatingCard {
                     Text("新增第二筆油耗紀錄後，即可查看趨勢圖！")
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, alignment: .center) // 🌟 撐滿寬度
+                        .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 20)
                 }
             } else {
@@ -212,7 +208,7 @@ struct GarageView: View {
                     )
                     .symbol(Circle())
                     .interpolationMethod(.catmullRom)
-                    .foregroundStyle(AppTheme.primary)
+                    .foregroundStyle(currentThemeColor) // 🌟 折線圖線條同步主題色
                     
                     AreaMark(
                         x: .value("日期", record.date),
@@ -221,7 +217,7 @@ struct GarageView: View {
                     .interpolationMethod(.catmullRom)
                     .foregroundStyle(
                         LinearGradient(
-                            colors: [AppTheme.primary.opacity(0.25), .clear],
+                            colors: [currentThemeColor.opacity(0.25), .clear], // 🌟 漸層同步主題色
                             startPoint: .top,
                             endPoint: .bottom
                         )
@@ -244,7 +240,7 @@ struct GarageView: View {
     private var fuelSection: some View {
         VStack(spacing: 16) {
             currentFuelPriceView
-            fuelChartSection  // 注入折線圖
+            fuelChartSection
             
             if fuelRecords.isEmpty {
                 Text("尚無加油紀錄，請點擊右下角新增。").font(.subheadline).foregroundStyle(
@@ -284,14 +280,13 @@ struct GarageView: View {
                                         : "-- km/L"
                                     )
                                     .font(.caption)
-                                    .foregroundStyle(AppTheme.primary)
+                                    .foregroundStyle(currentThemeColor) // 🌟 列表油耗數據同步主題色
                                 }
                             }
                         }
-                        .frame(maxWidth: .infinity) // 🌟 撐開卡片寬度
+                        .frame(maxWidth: .infinity)
                     }
                     .transition(.movingParts.pop)
-                    // 🌟 加上長按刪除選單
                     .contextMenu {
                         Button(role: .destructive) {
                             withAnimation {
@@ -314,7 +309,6 @@ struct GarageView: View {
     private var maintenanceSection: some View {
         VStack(spacing: 16) {
             
-            // 上次保養項目的卡片區塊
             if let lastRecord = maintenanceRecords.first {
                 VStack(alignment: .leading, spacing: 10) {
                     Text("上次保養項目")
@@ -328,7 +322,7 @@ struct GarageView: View {
                                 Text(lastRecord.item)
                                     .font(.headline)
                                     .fontWeight(.semibold)
-                                    .foregroundStyle(AppTheme.primary)
+                                    .foregroundStyle(currentThemeColor) // 🌟 精選保養項目標題同步主題色
                                 
                                 HStack(spacing: 12) {
                                     Label(
@@ -349,10 +343,9 @@ struct GarageView: View {
                                 .fontWeight(.bold)
                                 .foregroundStyle(AppTheme.onSurface)
                         }
-                        .frame(maxWidth: .infinity) // 🌟 撐開卡片寬度
+                        .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
                     }
-                    // 🌟 首筆紀錄也支援長按刪除
                     .contextMenu {
                         Button(role: .destructive) {
                             withAnimation {
@@ -377,7 +370,6 @@ struct GarageView: View {
                     .secondary
                 ).padding(.top, 40)
             } else {
-                // 排除第一筆（因為已經放到獨立精選卡片了）
                 ForEach(maintenanceRecords.dropFirst()) { record in
                     FloatingCard {
                         HStack {
@@ -395,12 +387,11 @@ struct GarageView: View {
                             Spacer()
                             Text("NT$ \(Int(record.cost))")
                                 .font(.subheadline).fontWeight(.bold)
-                                .foregroundStyle(AppTheme.primary)
+                                .foregroundStyle(currentThemeColor) // 🌟 歷史保養費用同步主題色
                         }
-                        .frame(maxWidth: .infinity) // 🌟 撐開卡片寬度
+                        .frame(maxWidth: .infinity)
                     }
                     .transition(.movingParts.pop)
-                    // 🌟 歷史紀錄加上長按刪除選單
                     .contextMenu {
                         Button(role: .destructive) {
                             withAnimation {
@@ -418,6 +409,56 @@ struct GarageView: View {
             value: maintenanceRecords
         )
         .changeEffect(.shine, value: maintenanceRecords.count)
+    }
+}
+
+// MARK: - 獨立的油價卡片視圖 (已完美同步全域主題色)
+struct FuelPriceCard: View {
+    let name: String
+    let price: Double
+    let preferredGasType: String
+    let themeColor: Color // 🌟 接收來自外層的動態主題色
+    
+    @State private var isPow = false
+    
+    var isPreferred: Bool {
+        let prefPrefix = String(preferredGasType.prefix(2))
+        return name.contains(prefPrefix)
+    }
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(name.replacingOccurrences(of: "無鉛汽油", with: " 無鉛"))
+                .font(.caption2)
+                .foregroundStyle(isPreferred ? themeColor : AppTheme.onSurfaceVariant) // 🌟 高亮文字顏色同步
+            
+            Text("$\(price, specifier: "%.1f")")
+                .font(.headline)
+                .fontWeight(.black)
+                .foregroundStyle(isPreferred ? themeColor : AppTheme.primary) // 🌟 高亮金額顏色同步
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        // 🌟 偏好油種高亮背景與邊框同步套用 themeColor
+        .background(isPreferred ? themeColor.opacity(0.15) : AppTheme.surfaceContainerLowest)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isPreferred ? themeColor.opacity(0.6) : Color.clear, lineWidth: 1.5)
+        )
+        .shadow(
+            color: AppTheme.outlineVariant.opacity(0.2),
+            radius: 5,
+            y: 2
+        )
+        .scaleEffect(isPreferred && isPow ? 1.05 : 1.0)
+        .onAppear {
+            if isPreferred {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.5).delay(0.1)) {
+                    isPow = true
+                }
+            }
+        }
     }
 }
 

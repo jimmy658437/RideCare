@@ -5,38 +5,57 @@
 //  Created by 114-2Workshop12 on 2026/5/23.
 //
 
-
-import SwiftUI
+import PhotosUI  // 引入相簿圖片選擇套件
+import Pow  // 引入 Pow 動畫套件
 import SwiftData
-import Pow // 引入 Pow 動畫套件
+import SwiftUI
+
+// MARK: - 主題選項結構
+struct ThemeOption: Hashable {
+    let name: String
+    let hex: String
+    let color: Color
+}
 
 struct HomeView: View {
     @Environment(\.modelContext) private var context
     // 撈取全部裝備以便即時連動
     @Query private var allEquipments: [EquipmentItem]
-    
+
     @State private var showSettings = false
     @State private var showUpdateMileage = false
-    @State private var showAIAdvisor = false // 控制 AI 健檢頁面彈出
+    @State private var showAIAdvisor = false  // 控制 AI 健檢頁面彈出
     @State private var newMileageInput = ""
-    @StateObject
-    private var weatherVM = WeatherViewModel()
-    
+    @StateObject private var weatherVM = WeatherViewModel()
+
     // 控制呼吸光暈的狀態
     @State private var isCriticalGlow = false
-    
+
     // AppStorage 全域快取設定
     @AppStorage("username") private var username = "使用者"
+    @AppStorage("profileImageData") private var profileImageData: Data?  // 儲存頭像
+
+    // 🌟 修正 1：確保預設值與設定頁的 "Default" 一致
+    @AppStorage("themeColorHex") private var themeColorHex = "Default"  // 全局主題色
+
     @AppStorage("currentMileage") private var currentMileage = 13500.0
     @AppStorage("maintenanceInterval") private var maintenanceInterval = 1000.0
-    @AppStorage("selectedWeatherTab") private var isRainyDaySelection = false // 晴雨天狀態保存
+    @AppStorage("selectedWeatherTab") private var isRainyDaySelection = false  // 晴雨天狀態保存
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
-    @AppStorage("homeCity")
-    private var homeCity = "Taipei"
+    @AppStorage("homeCity") private var homeCity = "Taipei"
 
     // 篩選當前天氣選中的裝備
     var currentGearList: [EquipmentItem] {
         allEquipments.filter { $0.isRainyDay == isRainyDaySelection }
+    }
+
+    // 🌟 修正 2：將 Hex 字串轉為 SwiftUI Color 以套用主題色
+    var primaryThemeColor: Color {
+        if themeColorHex == "Default" {
+            return AppTheme.primary  // 👈 將這裡改為你的深藍色
+        } else {
+            return Color(hex: themeColorHex)
+        }
     }
 
     var body: some View {
@@ -50,9 +69,7 @@ struct HomeView: View {
 
                     weatherCard
 
-                    mileageCard
-
-                    maintenanceAlertCard
+                    mergedMileageCard  // 整合里程數與保養進度
 
                     aiAdvisorButton
 
@@ -71,60 +88,149 @@ struct HomeView: View {
             SettingsSheet().modelContext(context)
         }
         .sheet(isPresented: $showAIAdvisor) {
-            AIAdvisorSheet().modelContext(context) // 彈出 AI 分析視窗
+            AIAdvisorSheet().modelContext(context)  // 彈出 AI 分析視窗
         }
     }
 
     // MARK: - 畫面組件
     private var headerView: some View {
         HStack {
-            Image(systemName: "person.circle.fill")
-                .resizable().frame(width: 36, height: 36)
-                .foregroundStyle(AppTheme.onSurfaceVariant)
+            // 讀取自訂頭像，若無則顯示預設圖示
+            if let imageData = profileImageData,
+                let uiImage = UIImage(data: imageData)
+            {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(width: 36, height: 36)
+                    .clipShape(Circle())
+            } else {
+                Image(systemName: "person.circle.fill")
+                    .resizable().frame(width: 36, height: 36)
+                    .foregroundStyle(AppTheme.onSurfaceVariant)
+            }
+
             Spacer()
-            Text("RideCare").font(.title2).fontWeight(.bold).foregroundStyle(AppTheme.primary)
+            Text("R i d e C a r e").font(.title2).fontWeight(.bold).foregroundStyle(
+                primaryThemeColor
+            )
             Spacer()
             Button(action: { showSettings = true }) {
-                Image(systemName: "gearshape.fill").font(.title2).foregroundStyle(AppTheme.primary)
+                Image(systemName: "gearshape.fill").font(.title2)
+                    .foregroundStyle(primaryThemeColor)
             }
         }
         .padding(.top, 10)
     }
 
-    private var mileageCard: some View {
-        FloatingCard {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Text("\(greetingTitle)，\(username)").font(.subheadline).foregroundStyle(AppTheme.onSurfaceVariant)
-                    Spacer()
-                    HStack(spacing: 6) {
-                        Circle().frame(width: 8, height: 8).foregroundStyle(.green)
-                        Text("狀態良好").font(.caption).fontWeight(.medium)
-                    }
-                    .padding(.horizontal, 10).padding(.vertical, 6)
-                    .background(AppTheme.primaryFixed).clipShape(Capsule())
+    // 里程與保養二合一卡片
+    private var mergedMileageCard: some View {
+        let currentIntervalProgress = currentMileage.truncatingRemainder(
+            dividingBy: maintenanceInterval
+        )
+        let remainingKm = maintenanceInterval - currentIntervalProgress
+
+        // 狀態判斷
+        let isCritical = remainingKm <= 100  // 狀態不佳
+        let isWarning = remainingKm <= 300 && remainingKm > 100  // 需注意
+
+        let statusText = isCritical ? "狀態不佳" : (isWarning ? "需注意" : "狀態良好")
+        let statusColor: Color =
+            isCritical ? .red : (isWarning ? .yellow : .green)
+        let backgroundColor: Color =
+            isCritical
+            ? Color.red.opacity(0.15)
+            : (isWarning
+                ? Color.yellow.opacity(0.15) : AppTheme.secondaryContainer)
+
+        return VStack(alignment: .leading, spacing: 16) {
+            // 頂部：問候語與狀態標籤
+            HStack {
+                Text("\(greetingTitle)，\(username)").font(.subheadline)
+                    .foregroundStyle(AppTheme.onSurfaceVariant)
+                Spacer()
+                HStack(spacing: 6) {
+                    Circle().frame(width: 8, height: 8).foregroundStyle(
+                        statusColor
+                    )
+                    Text(statusText).font(.caption).fontWeight(.medium)
                 }
-                
-                HStack(alignment: .bottom, spacing: 4) {
-                    Text("\(Int(currentMileage))")
-                        .font(.system(size: 48, weight: .bold, design: .rounded))
-                        .foregroundStyle(AppTheme.primary)
-                    Text("km").font(.title3).foregroundStyle(AppTheme.onSurfaceVariant).padding(.bottom, 8)
-                    
-                    Spacer()
-                    
-                    Button(action: { showUpdateMileage = true }) {
-                        Text("更新")
-                            .font(.callout.weight(.medium))
-                            .foregroundStyle(AppTheme.primary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 8)
-                            .background(AppTheme.primaryFixed)
-                            .clipShape(Capsule())
-                    }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .background(Color.white.opacity(0.5)).clipShape(Capsule())
+            }
+
+            // 總里程與更新按鈕
+            HStack(alignment: .bottom, spacing: 4) {
+                Text("\(Int(currentMileage))")
+                    .font(.system(size: 48, weight: .bold, design: .rounded))
+                    .foregroundStyle(primaryThemeColor)
+                Text("km").font(.title3).foregroundStyle(
+                    AppTheme.onSurfaceVariant
+                ).padding(.bottom, 8)
+
+                Spacer()
+
+                Button(action: { showUpdateMileage = true }) {
+                    Text("更新里程")
+                        .font(.callout.weight(.medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 8)
+                        .background(primaryThemeColor)
+                        .clipShape(Capsule())
+                }
+            }
+
+            Divider()
+
+            // 保養進度條
+            HStack(spacing: 12) {
+                Image(systemName: "wrench.and.screwdriver").foregroundStyle(
+                    statusColor
+                )
+                Text("距下次保養剩餘 \(Int(remainingKm)) km")
+                    .font(.subheadline)
+                    .foregroundStyle(isCritical ? .red : AppTheme.onSurface)
+            }
+            ProgressView(
+                value: currentIntervalProgress,
+                total: maintenanceInterval
+            )
+            .tint(statusColor)
+        }
+        .padding(24)
+        .background(backgroundColor)
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        // Pow 呼吸光暈與動畫特效 (僅在狀態不佳時觸發)
+        .shadow(
+            color: isCritical
+                ? .red.opacity(isCriticalGlow ? 0.8 : 0.0)
+                : Color.black.opacity(0.02),
+            radius: isCritical ? (isCriticalGlow ? 15 : 5) : 8,
+            x: 0,
+            y: isCritical ? 0 : 4
+        )
+        .onAppear {
+            if isCritical {
+                withAnimation(
+                    .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+                ) {
+                    isCriticalGlow = true
                 }
             }
         }
+        .onChange(of: isCritical) { _, newValue in
+            if newValue {
+                withAnimation(
+                    .easeInOut(duration: 1.0).repeatForever(autoreverses: true)
+                ) {
+                    isCriticalGlow = true
+                }
+            } else {
+                withAnimation { isCriticalGlow = false }
+            }
+        }
+        .changeEffect(.shine, value: isCritical)  // Pow 科技反光動畫
         .alert("更新目前里程", isPresented: $showUpdateMileage) {
             TextField("輸入最新里程數", text: $newMileageInput)
                 .keyboardType(.numberPad)
@@ -138,57 +244,120 @@ struct HomeView: View {
         }
     }
 
-    private var maintenanceAlertCard: some View {
-        let currentIntervalProgress = currentMileage.truncatingRemainder(dividingBy: maintenanceInterval)
-        let remainingKm = maintenanceInterval - currentIntervalProgress
-        
-        // 判斷是否進入 100 公里內的紅色警戒
-        let isCritical = remainingKm <= 100
-        
-        return VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 16) {
-                Circle().fill(AppTheme.surfaceContainerLowest).frame(width: 48, height: 48)
-                    .overlay(Image(systemName: "wrench.and.screwdriver").foregroundStyle(isCritical ? .red : AppTheme.primary))
-                Text("保養提醒").font(.title3).foregroundStyle(isCritical ? .red : AppTheme.onSurface)
-            }
-            
-            Text("每 \(Int(maintenanceInterval)) km 保養：剩餘 \(Int(remainingKm)) km 需進行檢修。")
-                .font(.subheadline).foregroundStyle(AppTheme.onSurfaceVariant).lineSpacing(4)
-            
-            ProgressView(value: currentIntervalProgress, total: maintenanceInterval)
-                .tint(isCritical ? .red : AppTheme.primary)
-        }
-        .padding(24)
-        .background(AppTheme.secondaryContainer)
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        // 🌟 動畫 1：原生循環呼吸光暈 (低於 100 公里自動啟動)
-        .shadow(
-            color: isCritical ? .red.opacity(isCriticalGlow ? 0.6 : 0.0) : Color.black.opacity(0.02),
-            radius: isCritical ? (isCriticalGlow ? 15 : 5) : 8,
-            x: 0,
-            y: isCritical ? 0 : 4
-        )
-        .onAppear {
-            if isCritical {
-                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                    isCriticalGlow = true
-                }
-            }
-        }
-        .onChange(of: isCritical) { _, newValue in
-            if newValue {
-                withAnimation(.easeInOut(duration: 1.2).repeatForever(autoreverses: true)) {
-                    isCriticalGlow = true
-                }
+    private var weatherCard: some View {
+        VStack {
+            if UserDefaults.standard.string(forKey: "openWeatherAPIKey")?
+                .isEmpty ?? true
+            {
+                ContentUnavailableView(
+                    "尚未設定 API Key",
+                    systemImage: "key.fill",
+                    description: Text("請到設定頁面輸入 OpenWeatherMap API Key")
+                )
             } else {
-                withAnimation { isCriticalGlow = false }
+                HStack(alignment: .center, spacing: 20) {
+                    // 左側：Icon 與 溫度
+                    VStack {
+                        if let icon = weatherVM.weatherIcon {
+                            AsyncImage(
+                                url: URL(
+                                    string:
+                                        "https://openweathermap.org/img/wn/\(icon)@2x.png"
+                                )
+                            ) { image in
+                                image.resizable().scaledToFit()
+                            } placeholder: {
+                                ProgressView()
+                            }
+                            .frame(width: 50, height: 50)
+                        }
+                        if let temp = weatherVM.temperature {
+                            Text("\(String(format: "%.1f", temp))°C")
+                                .font(
+                                    .system(
+                                        size: 32,
+                                        weight: .bold,
+                                        design: .rounded
+                                    )
+                                )
+                                .foregroundStyle(.white)
+                        }
+                        if let desc = weatherVM.weatherDescription {
+                            Text(desc).font(.caption).foregroundStyle(
+                                .white.opacity(0.9)
+                            )
+                        }
+                    }
+
+                    Spacer()
+
+                    // 右側：地區與詳細資訊
+                    VStack(alignment: .trailing, spacing: 8) {
+                        Text(weatherVM.city).font(.headline).foregroundStyle(
+                            .white
+                        )
+
+                        HStack(spacing: 12) {
+                            Label(
+                                "\(String(format: "%.1f", weatherVM.feelsLikeTemperature ?? 0))°",
+                                systemImage: "thermometer"
+                            )
+                            Label(
+                                "\(weatherVM.humidity ?? 0)%",
+                                systemImage: "humidity"
+                            )
+                            Label(
+                                "\(String(format: "%.1f", weatherVM.windSpeed ?? 0))",
+                                systemImage: "wind"
+                            )
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.9))
+                    }
+                }
             }
         }
-        // 🌟 動畫 2：Pow 數值異動特效 (剛好低於 100 時刷一道科技反光)
-        .changeEffect(.shine, value: isCritical)
+        .padding(20)
+        .background(getWeatherGradient(icon: weatherVM.weatherIcon ?? ""))
+        .clipShape(RoundedRectangle(cornerRadius: 24))
+        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
     }
 
-    // 🌟 新增：Apple Intelligence 風格 AI 按鈕
+    // 依據天氣 Icon 動態給予漸層背景
+    private func getWeatherGradient(icon: String) -> LinearGradient {
+        let isDay = icon.contains("d")
+        let isRain =
+            icon.contains("09") || icon.contains("10") || icon.contains("11")
+        let isCloudy =
+            icon.contains("02") || icon.contains("03") || icon.contains("04")
+
+        if isRain {
+            return LinearGradient(
+                colors: [.gray, .blue.opacity(0.8)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else if isCloudy {
+            return LinearGradient(
+                colors: [.blue.opacity(0.6), .gray.opacity(0.6)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else if isDay {
+            return LinearGradient(
+                colors: [.orange, .blue.opacity(0.7)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        } else {
+            return LinearGradient(
+                colors: [.gray.opacity(0.2), .black.opacity(0.25)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        }
+    }
+
     private var aiAdvisorButton: some View {
         Button(action: { showAIAdvisor = true }) {
             HStack(spacing: 12) {
@@ -213,133 +382,47 @@ struct HomeView: View {
             .shadow(color: .purple.opacity(0.3), radius: 8, x: 0, y: 4)
         }
     }
-    
-    private var weatherCard: some View {
-        
-        FloatingCard {
-            
-            if UserDefaults.standard.string(
-                forKey: "openWeatherAPIKey"
-            )?.isEmpty ?? true {
-
-                ContentUnavailableView(
-                    "尚未設定 API Key",
-                    systemImage: "key.fill",
-                    description: Text("請到設定頁面輸入 OpenWeatherMap API Key")
-                )
-
-            } else {
-
-                VStack(alignment: .leading, spacing: 16) {
-
-                    HStack {
-                        Label("即時天氣", systemImage: "cloud.sun.fill")
-                            .font(.headline)
-
-                        Spacer()
-
-                        if let icon = weatherVM.weatherIcon {
-
-                            AsyncImage(
-                                url: URL(
-                                    string: "https://openweathermap.org/img/wn/\(icon)@2x.png"
-                                )
-                            ) { image in
-
-                                image
-                                    .resizable()
-                                    .scaledToFit()
-
-                            } placeholder: {
-
-                                ProgressView()
-                            }
-                            .frame(width: 45, height: 45)
-                        }
-                    }
-
-                    Text(weatherVM.city)
-                        .font(.title3)
-                        .fontWeight(.bold)
-
-                    if let temp = weatherVM.temperature {
-
-                        Text("\(String(format: "%.1f", temp))°C")
-                            .font(
-                                .system(
-                                    size: 42,
-                                    weight: .bold,
-                                    design: .rounded
-                                )
-                            )
-                            .foregroundStyle(AppTheme.primary)
-                    }
-
-                    if let description = weatherVM.weatherDescription {
-
-                        Text(description)
-                            .foregroundStyle(AppTheme.onSurfaceVariant)
-                    }
-
-                    Divider()
-
-                    HStack {
-
-                        VStack(alignment: .leading) {
-                            Text("體感")
-                            Text(
-                                "\(String(format: "%.1f", weatherVM.feelsLikeTemperature ?? 0))°C"
-                            )
-                            .fontWeight(.bold)
-                        }
-
-                        Spacer()
-
-                        VStack(alignment: .leading) {
-                            Text("濕度")
-                            Text("\(weatherVM.humidity ?? 0)%")
-                                .fontWeight(.bold)
-                        }
-
-                        Spacer()
-
-                        VStack(alignment: .leading) {
-                            Text("風速")
-                            Text(
-                                "\(String(format: "%.1f", weatherVM.windSpeed ?? 0)) m/s"
-                            )
-                            .fontWeight(.bold)
-                        }
-                    }
-                }
-            }
-            
-            
-        }
-    }
 
     private var gearChecklistCard: some View {
         FloatingCard {
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
-                    Image(systemName: "checklist").foregroundStyle(AppTheme.primary)
-                    Text("今日裝備防呆").font(.title3).foregroundStyle(AppTheme.onSurface)
+                    Image(systemName: "checklist").foregroundStyle(
+                        primaryThemeColor
+                    )
+                    Text("今日裝備防呆").font(.title3).foregroundStyle(
+                        AppTheme.onSurface
+                    )
                     Spacer()
-                    
+
                     // 晴雨天切換按鈕
                     HStack(spacing: 0) {
                         Button(action: { isRainyDaySelection = false }) {
                             Image(systemName: "sun.max.fill")
                                 .padding(8)
-                                .background(!isRainyDaySelection ? AppTheme.surfaceContainerLowest : Color.clear)
-                                .foregroundStyle(!isRainyDaySelection ? .orange : AppTheme.onSurfaceVariant)
+                                .background(
+                                    !isRainyDaySelection
+                                        ? AppTheme.surfaceContainerLowest
+                                        : Color.clear
+                                )
+                                .foregroundStyle(
+                                    !isRainyDaySelection
+                                        ? .orange : AppTheme.onSurfaceVariant
+                                )
                                 .clipShape(Circle())
                         }
                         Button(action: { isRainyDaySelection = true }) {
                             Image(systemName: "cloud.rain.fill")
                                 .padding(8)
-                                .background(isRainyDaySelection ? AppTheme.surfaceContainerLowest : Color.clear)
-                                .foregroundStyle(isRainyDaySelection ? .blue : AppTheme.onSurfaceVariant)
+                                .background(
+                                    isRainyDaySelection
+                                        ? AppTheme.surfaceContainerLowest
+                                        : Color.clear
+                                )
+                                .foregroundStyle(
+                                    isRainyDaySelection
+                                        ? .blue : AppTheme.onSurfaceVariant
+                                )
                                 .clipShape(Circle())
                         }
                     }
@@ -347,18 +430,28 @@ struct HomeView: View {
                     .background(AppTheme.outlineVariant.opacity(0.3))
                     .clipShape(Capsule())
                 }
-                
+
                 if currentGearList.isEmpty {
                     Text("目前無預設裝備，可前往裝備頁新增。")
                         .font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(currentGearList) { gear in
                         HStack(spacing: 12) {
-                            Image(systemName: gear.isChecked ? "checkmark.circle.fill" : "circle")
-                                .foregroundStyle(gear.isChecked ? .green : AppTheme.outlineVariant)
+                            Image(
+                                systemName: gear.isChecked
+                                    ? "checkmark.circle.fill" : "circle"
+                            )
+                            .foregroundStyle(
+                                gear.isChecked
+                                    ? .green : AppTheme.outlineVariant
+                            )
                             Text(gear.name)
                                 .strikethrough(gear.isChecked)
-                                .foregroundStyle(gear.isChecked ? AppTheme.onSurfaceVariant : AppTheme.onSurface)
+                                .foregroundStyle(
+                                    gear.isChecked
+                                        ? AppTheme.onSurfaceVariant
+                                        : AppTheme.onSurface
+                                )
                             Spacer()
                         }
                         .contentShape(Rectangle())
@@ -377,11 +470,11 @@ struct HomeView: View {
         let formatter = DateFormatter()
         formatter.dateFormat = "MM-dd"
         let todayString = formatter.string(from: Date())
-        
+
         if todayString == userBirthdayString {
             return "🎂 生日快樂"
         }
-        
+
         let hour = Calendar.current.component(.hour, from: .now)
         switch hour {
         case 0..<12: return "早安"
@@ -394,95 +487,240 @@ struct HomeView: View {
 // MARK: - 系統設定頁面
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
-    
+
     @AppStorage("username") private var username = "使用者"
+    @AppStorage("profileImageData") private var profileImageData: Data?
+
+    // 🌟 保持與 HomeView 一致的預設值 "Default"
+    @AppStorage("themeColorHex") private var themeColorHex = "Default"
+
     @AppStorage("maintenanceInterval") private var maintenanceInterval = 1000.0
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
-    @AppStorage("homeCity")
-    private var homeCity = "Taipei"
-    @AppStorage("openWeatherAPIKey")
-    private var openWeatherAPIKey = ""
-    
+    @AppStorage("homeCity") private var homeCity = "Taipei"
+    @AppStorage("openWeatherAPIKey") private var openWeatherAPIKey = ""
+
+    // 機車偏好設定參數
+    @AppStorage("gasType") private var gasType = "95 無鉛汽油"
+    @AppStorage("tireInterval") private var tireInterval = 10000.0
+    @AppStorage("airFilterInterval") private var airFilterInterval = 5000.0
+
     @State private var birthdaySelection = Date()
+    @State private var photoItem: PhotosPickerItem?
+
+    let gasOptions = ["92 無鉛汽油", "95 無鉛汽油", "98 無鉛汽油"]
+
+    let themeOptions: [ThemeOption] = [
+        // 👇 1. hex 改為 "Default" 對應預設儲存值。2. color 改為 AppTheme.primary
+        ThemeOption(name: "預設", hex: "Default", color: AppTheme.primary),
+        ThemeOption(name: "莓果紅", hex: "#D8626E", color: Color(hex: "#D8626E")),
+        ThemeOption(name: "湖水綠", hex: "#32A89C", color: Color(hex: "#32A89C")),
+        ThemeOption(name: "丁香紫", hex: "#8A6FD1", color: Color(hex: "#8A6FD1")),
+        ThemeOption(name: "暖陽橘", hex: "#E88E4A", color: Color(hex: "#E88E4A")),
+        ThemeOption(name: "丹寧藍", hex: "#5281B9", color: Color(hex: "#5281B9")),
+        ThemeOption(name: "焦糖棕", hex: "#B3805B", color: Color(hex: "#B3805B")),
+    ]
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("個人基本資料") {
-                    TextField("使用者名稱", text: $username)
-                    
-                    DatePicker("出生日期", selection: $birthdaySelection, displayedComponents: .date)
-                        .onChange(of: birthdaySelection) { _, newValue in
-                            let formatter = DateFormatter()
-                            formatter.dateFormat = "MM-dd"
-                            userBirthdayString = formatter.string(from: newValue)
+                    // 頭像選擇器
+                    HStack {
+                        Text("大頭貼")
+                        Spacer()
+                        PhotosPicker(selection: $photoItem, matching: .images) {
+                            if let data = profileImageData,
+                                let image = UIImage(data: data)
+                            {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(width: 40, height: 40)
+                                    .clipShape(Circle())
+                            } else {
+                                Image(systemName: "person.circle.fill")
+                                    .resizable()
+                                    .frame(width: 40, height: 40)
+                                    .foregroundStyle(.gray)
+                            }
                         }
+                        .onChange(of: photoItem) { _, newItem in
+                            Task {
+                                if let data = try? await newItem?
+                                    .loadTransferable(type: Data.self)
+                                {
+                                    profileImageData = data
+                                }
+                            }
+                        }
+                    }
+
+                    TextField("使用者名稱", text: $username)
+
+                    DatePicker(
+                        "出生日期",
+                        selection: $birthdaySelection,
+                        displayedComponents: .date
+                    )
+                    .onChange(of: birthdaySelection) { _, newValue in
+                        let formatter = DateFormatter()
+                        formatter.dateFormat = "MM-dd"
+                        userBirthdayString = formatter.string(from: newValue)
+                    }
                 }
-                
-                Section(header: Text("車輛保養設定"), footer: Text("設定您的車輛每隔多少公里需要進行大保養（例如機油更換）。")) {
+
+                Section("全域主題色") {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 20) {
+                            ForEach(themeOptions, id: \.hex) { theme in
+                                VStack(spacing: 8) {
+                                    Circle()
+                                        .fill(theme.color)
+                                        .frame(width: 44, height: 44)
+                                        .shadow(
+                                            color: AppTheme.outlineVariant
+                                                .opacity(0.3),
+                                            radius: 2,
+                                            y: 1
+                                        )
+                                        .overlay(
+                                            Circle()
+                                                .strokeBorder(
+                                                    themeColorHex == theme.hex
+                                                        ? AppTheme
+                                                            .outlineVariant
+                                                        : Color.clear,
+                                                    lineWidth: 2
+                                                )
+                                                .padding(-4)
+                                        )
+                                        .overlay(
+                                            Image(systemName: "checkmark")
+                                                .font(
+                                                    .system(
+                                                        size: 18,
+                                                        weight: .bold
+                                                    )
+                                                )
+                                                .foregroundColor(.white)
+                                                .shadow(
+                                                    color: .black.opacity(0.2),
+                                                    radius: 1,
+                                                    x: 0,
+                                                    y: 1
+                                                )
+                                                .opacity(
+                                                    themeColorHex == theme.hex
+                                                        ? 1 : 0
+                                                )
+                                        )
+                                        .onTapGesture {
+                                            withAnimation(
+                                                .spring(
+                                                    response: 0.3,
+                                                    dampingFraction: 0.7
+                                                )
+                                            ) {
+                                                themeColorHex = theme.hex
+                                            }
+                                        }
+
+                                    Text(theme.name)
+                                        .font(.caption)
+                                        .fontWeight(
+                                            themeColorHex == theme.hex
+                                                ? .bold : .regular
+                                        )
+                                        .foregroundStyle(
+                                            themeColorHex == theme.hex
+                                                ? AppTheme.onSurface
+                                                : AppTheme.onSurfaceVariant
+                                        )
+                                }
+                            }
+                        }
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 4)
+                    }
+                }
+
+                Section(
+                    header: Text("機車偏好與耗材建議"),
+                    footer: Text("設定您的機車偏好，以及各項常見耗材的更換里程，以便提供個人化建議。")
+                ) {
+                    Picker("偏好汽油種類", selection: $gasType) {
+                        ForEach(gasOptions, id: \.self) { gas in
+                            Text(gas).tag(gas)
+                        }
+                    }
+
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
-                            Text("保養里程區間")
+                            Text("機油保養區間")
                             Spacer()
-                            Text("\(Int(maintenanceInterval)) km")
-                                .fontWeight(.bold)
-                                .foregroundStyle(AppTheme.primary)
+                            Text("\(Int(maintenanceInterval)) km").fontWeight(
+                                .bold
+                            )
                         }
-                        
-                        Slider(value: $maintenanceInterval, in: 1000...10000, step: 500)
-                            .tint(AppTheme.primary)
+                        Slider(
+                            value: $maintenanceInterval,
+                            in: 800...3000,
+                            step: 100
+                        )
+                    }
+                    .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("輪胎更換區間")
+                            Spacer()
+                            Text("\(Int(tireInterval)) km").fontWeight(.bold)
+                        }
+                        Slider(
+                            value: $tireInterval,
+                            in: 5000...20000,
+                            step: 1000
+                        )
+                    }
+                    .padding(.vertical, 4)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("空濾更換區間")
+                            Spacer()
+                            Text("\(Int(airFilterInterval)) km").fontWeight(
+                                .bold
+                            )
+                        }
+                        Slider(
+                            value: $airFilterInterval,
+                            in: 3000...10000,
+                            step: 1000
+                        )
                     }
                     .padding(.vertical, 4)
                 }
-                
-                Section("居住地") {
 
-                    Picker(
-                        "天氣地區",
-                        selection: $homeCity
-                    ) {
-
-                        Text("Taipei")
-                            .tag("Taipei")
-
-                        Text("New Taipei")
-                            .tag("New Taipei")
-
-                        Text("Taoyuan")
-                            .tag("Taoyuan")
-
-                        Text("Hsinchu")
-                            .tag("Hsinchu")
-
-                        Text("Taichung")
-                            .tag("Taichung")
-
-                        Text("Tainan")
-                            .tag("Tainan")
-
-                        Text("Kaohsiung")
-                            .tag("Kaohsiung")
+                Section("居住地與天氣") {
+                    Picker("天氣地區", selection: $homeCity) {
+                        Text("Taipei").tag("Taipei")
+                        Text("New Taipei").tag("New Taipei")
+                        Text("Taoyuan").tag("Taoyuan")
+                        Text("Hsinchu").tag("Hsinchu")
+                        Text("Taichung").tag("Taichung")
+                        Text("Tainan").tag("Tainan")
+                        Text("Kaohsiung").tag("Kaohsiung")
                     }
-                }
-                
-                Section("OpenWeatherMap") {
 
-                    SecureField(
-                        "輸入 API Key",
-                        text: $openWeatherAPIKey
-                    )
+                    SecureField("輸入 API Key", text: $openWeatherAPIKey)
 
                     Text("可至 OpenWeatherMap 官網申請免費 API Key")
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
                     if !openWeatherAPIKey.isEmpty {
-
-                        Label(
-                            "已儲存",
-                            systemImage: "checkmark.circle.fill"
-                        )
-                        .foregroundStyle(.green)
+                        Label("已儲存", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
                     }
                 }
             }
@@ -496,7 +734,10 @@ struct SettingsSheet: View {
                 formatter.dateFormat = "MM-dd"
                 if let date = formatter.date(from: userBirthdayString) {
                     let year = Calendar.current.component(.year, from: Date())
-                    var components = Calendar.current.dateComponents([.month, .day], from: date)
+                    var components = Calendar.current.dateComponents(
+                        [.month, .day],
+                        from: date
+                    )
                     components.year = year
                     if let finalDate = Calendar.current.date(from: components) {
                         birthdaySelection = finalDate

@@ -11,36 +11,33 @@ import Pow
 import FoundationModels
 
 struct AIAdvisorSheet: View {
-
+    
     @Environment(\.dismiss) private var dismiss
-
+    
     // MARK: - SwiftData
-
     @Query(sort: \FuelRecord.date, order: .reverse)
     private var fuelRecords: [FuelRecord]
-
+    
     @Query(sort: \MaintenanceRecord.date, order: .reverse)
     private var maintenanceRecords: [MaintenanceRecord]
-
+    
     // MARK: - AppStorage
-
     @AppStorage("currentMileage")
     private var currentMileage = 13500.0
-
+    
     // MARK: - State
-
     @State private var isAnalyzing = true
     @State private var aiReport = ""
     @State private var glowIntensity: CGFloat = 0.5
     @State private var showErrorAlert = false
     @State private var errorMessage = ""
-
-    // MARK: - AI Service
-
+    
+    // MARK: - Services
     @State private var aiService = AIService()
-
+    // 1️⃣ 引入天氣 ViewModel
+    @StateObject private var weatherVM = WeatherViewModel()
+    
     // MARK: - Gradient
-
     let aiGradient = LinearGradient(
         colors: [
             .purple,
@@ -51,27 +48,21 @@ struct AIAdvisorSheet: View {
         startPoint: .topLeading,
         endPoint: .bottomTrailing
     )
-
+    
     var body: some View {
-
         NavigationStack {
-
             ZStack {
-
                 AppTheme.background
                     .ignoresSafeArea()
-
+                
                 ScrollView {
-
                     VStack(spacing: 28) {
-
+                        
                         // MARK: - AI Orb
-
                         Circle()
                             .fill(aiGradient)
                             .frame(width: 110, height: 110)
                             .overlay {
-
                                 Image(systemName: "sparkles")
                                     .font(.system(size: 38))
                                     .foregroundStyle(.white)
@@ -87,11 +78,9 @@ struct AIAdvisorSheet: View {
                                 value: isAnalyzing
                             )
                             .padding(.top, 24)
-
+                        
                         // MARK: - Title
-
                         VStack(spacing: 8) {
-
                             Text(
                                 isAnalyzing
                                 ? "AI 正在分析您的車況資料..."
@@ -99,43 +88,37 @@ struct AIAdvisorSheet: View {
                             )
                             .font(.title2)
                             .fontWeight(.bold)
-
+                            
                             Text(
                                 isAnalyzing
-                                ? "正在整理油耗、里程與保養紀錄"
+                                ? "正在整理油耗、保養紀錄與即時天氣"
                                 : "由 Apple Foundation Models 產生"
                             )
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                         }
-
+                        
                         // MARK: - Loading
-
                         if isAnalyzing {
-
                             VStack(spacing: 18) {
-
                                 ProgressView()
                                     .tint(.purple)
                                     .scaleEffect(1.2)
-
+                                
                                 Text("請稍候...")
                                     .foregroundStyle(.secondary)
                             }
                             .padding(.top, 20)
-
+                            
                         } else {
-
                             // MARK: - AI Report Card
-
                             VStack(alignment: .leading, spacing: 18) {
-
                                 Label(
                                     "分析結果",
                                     systemImage: "brain.head.profile"
                                 )
                                 .font(.headline)
-
+                                
                                 Text(aiReport)
                                     .font(.body)
                                     .lineSpacing(8)
@@ -158,7 +141,7 @@ struct AIAdvisorSheet: View {
                             )
                             .transition(.movingParts.pop)
                         }
-
+                        
                         Spacer(minLength: 40)
                     }
                     .padding(.horizontal, 24)
@@ -166,43 +149,33 @@ struct AIAdvisorSheet: View {
             }
             .navigationTitle("AI 顧問")
             .navigationBarTitleDisplayMode(.inline)
-
             .toolbar {
-
                 ToolbarItem(placement: .topBarTrailing) {
-
                     Button("關閉") {
                         dismiss()
                     }
                 }
             }
-
             .alert(
                 "AI 分析失敗",
                 isPresented: $showErrorAlert
             ) {
-
                 Button("知道了") { }
-
             } message: {
-
                 Text(errorMessage)
             }
-
             .task {
+                // 2️⃣ 先抓取當前天氣，再產生 AI 報告
+                await weatherVM.fetchWeather()
                 await generateAIReport()
             }
         }
     }
-
+    
     // MARK: - Generate AI Report
-
     private func generateAIReport() async {
-
         do {
-
             // MARK: 平均油耗
-
             let avgKmPerLiter =
                 fuelRecords.isEmpty
                 ? 0
@@ -210,48 +183,40 @@ struct AIAdvisorSheet: View {
                     .map { $0.kmPerLiter }
                     .reduce(0, +)
                     / Double(fuelRecords.count)
-
+            
             // MARK: 最近保養
-
             let latestMaintenance =
                 maintenanceRecords.first?.item
                 ?? "尚無保養紀錄"
-
-            // MARK: AI 呼叫
-
+            
+            // MARK: AI 呼叫 (3️⃣ 傳入天氣參數)
             let result = try await aiService.generateVehicleReport(
                 currentMileage: currentMileage,
                 avgKmPerLiter: avgKmPerLiter,
-                latestMaintenance: latestMaintenance
+                latestMaintenance: latestMaintenance,
+                temperature: weatherVM.temperature,
+                weatherDescription: weatherVM.weatherDescription
             )
-
+            
             // MARK: 更新畫面
-
             await MainActor.run {
-
                 aiReport = result
-
                 withAnimation(.spring(duration: 0.8)) {
-
                     isAnalyzing = false
                     glowIntensity = 0.2
                 }
             }
-
+            
         } catch {
-
             await MainActor.run {
-
                 isAnalyzing = false
-
                 errorMessage = """
                 請確認：
-
+                
                 • 使用 iOS 26
                 • 裝置支援 Apple Intelligence
                 • Apple Intelligence 已開啟
                 """
-
                 showErrorAlert = true
             }
         }
@@ -262,45 +227,53 @@ struct AIAdvisorSheet: View {
 
 @Observable
 final class AIService {
-
+    
     private let session = LanguageModelSession()
-
+    
     func generateVehicleReport(
         currentMileage: Double,
         avgKmPerLiter: Double,
-        latestMaintenance: String
+        latestMaintenance: String,
+        temperature: Double?,       // 4️⃣ 新增天氣參數
+        weatherDescription: String? // 4️⃣ 新增天氣參數
     ) async throws -> String {
-
+        
+        // 將天氣資訊格式化，處理可能沒有網路或沒有設定 API Key 的情況
+        let weatherContext: String
+        if let temp = temperature, let desc = weatherDescription {
+            weatherContext = "氣溫 \(String(format: "%.1f", temp))°C，天氣狀況：\(desc)"
+        } else {
+            weatherContext = "未知"
+        }
+        
+        // 5️⃣ 更新 Prompt 指令
         let prompt = """
         你是一位專業的台灣機車保養顧問。
-
-        請根據以下車輛資訊：
-
+        
+        請根據以下車輛與環境資訊：
+        
         • 目前里程：\(Int(currentMileage)) km
         • 平均油耗：\(String(format: "%.1f", avgKmPerLiter)) km/L
         • 最近保養項目：\(latestMaintenance)
-
+        • 當前天氣：\(weatherContext)
+        
         幫我分析：
-
         1. 車況評估
         2. 油耗分析
         3. 保養建議
-        4. 雨天騎乘注意事項
+        4. 基於「當前天氣狀況」的騎乘與注意事項 (若天氣未知則提供一般建議)
         5. 近期建議檢查的項目
-
+        
         使用繁體中文。
-
         語氣專業但自然。
-
         不要太冗長。
-
-        長度約 200 字。
+        長度約 200-250 字。
         """
-
+        
         let response = try await session.respond(
             to: prompt
         )
-
+        
         return response.content
     }
 }
