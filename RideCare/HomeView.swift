@@ -72,7 +72,7 @@ struct HomeView: View {
                         .fill(
                             RadialGradient(
                                 colors: [
-                                    primaryThemeColor.opacity(0.3), .clear,
+                                    primaryThemeColor.opacity(0.5), .clear,
                                 ],  // 調整 0.5 改變光暈強度
                                 center: .center,
                                 startRadius: 0,
@@ -436,6 +436,7 @@ struct SettingsSheet: View {
 
     // 機車偏好設定參數
     @AppStorage("gasType") private var gasType = "95 無鉛汽油"
+    @AppStorage("gearoilInterval") private var gearoilInterval = 2000.0
     @AppStorage("tireInterval") private var tireInterval = 10000.0
     @AppStorage("airFilterInterval") private var airFilterInterval = 5000.0
 
@@ -603,6 +604,20 @@ struct SettingsSheet: View {
                             value: $maintenanceInterval,
                             in: 800...3000,
                             step: 100
+                        )
+                    }
+                    .padding(.vertical, 4)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("齒輪油更換區間")
+                            Spacer()
+                            Text("\(Int(gearoilInterval)) km").fontWeight(.bold)
+                        }
+                        Slider(
+                            value: $gearoilInterval,
+                            in: 500...10000,
+                            step: 500
                         )
                     }
                     .padding(.vertical, 4)

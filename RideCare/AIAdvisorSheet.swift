@@ -24,6 +24,20 @@ struct AIAdvisorSheet: View {
     // MARK: - AppStorage
     @AppStorage("currentMileage")
     private var currentMileage = 13500.0
+    @AppStorage("maintenanceInterval")
+    private var maintenanceInterval = 1000.0
+
+    @AppStorage("gearoilInterval")
+    private var gearoilInterval = 2000.0
+
+    @AppStorage("tireInterval")
+    private var tireInterval = 10000.0
+
+    @AppStorage("airFilterInterval")
+    private var airFilterInterval = 5000.0
+
+    @AppStorage("gasType")
+    private var gasType = "95 無鉛汽油"
     
     // MARK: - State
     @State private var isAnalyzing = true
@@ -172,6 +186,22 @@ struct AIAdvisorSheet: View {
         }
     }
     
+    //保養里程
+    private func lastMaintenanceMileage(
+        keyword: String
+    ) -> Double? {
+
+        maintenanceRecords
+            .filter {
+                $0.item.localizedCaseInsensitiveContains(keyword)
+            }
+            .sorted {
+                $0.date > $1.date
+            }
+            .first?
+            .mileage
+    }
+    
     // MARK: - Generate AI Report
     private func generateAIReport() async {
         do {
@@ -189,11 +219,51 @@ struct AIAdvisorSheet: View {
                 maintenanceRecords.first?.item
                 ?? "尚無保養紀錄"
             
+            let lastOilMileage =
+                lastMaintenanceMileage(keyword: "機油")
+                ?? 0
+
+            let oilRemaining =
+                maintenanceInterval -
+                (currentMileage - lastOilMileage)
+            
+            let lastGearOilMileage =
+                lastMaintenanceMileage(keyword: "齒輪油")
+                ?? 0
+
+            let gearOilRemaining =
+                gearoilInterval -
+                (currentMileage - lastGearOilMileage)
+            
+            let lastTireMileage =
+                lastMaintenanceMileage(keyword: "輪胎")
+                ?? 0
+
+            let tireRemaining =
+                tireInterval -
+                (currentMileage - lastTireMileage)
+            
+            let lastAirFilterMileage =
+                lastMaintenanceMileage(keyword: "空濾")
+                ?? 0
+
+            let airFilterRemaining =
+                airFilterInterval -
+                (currentMileage - lastAirFilterMileage)
+            
             // MARK: AI 呼叫 (3️⃣ 傳入天氣參數)
             let result = try await aiService.generateVehicleReport(
                 currentMileage: currentMileage,
                 avgKmPerLiter: avgKmPerLiter,
                 latestMaintenance: latestMaintenance,
+
+                oilRemaining: oilRemaining,
+                gearOilRemaining: gearOilRemaining,
+                tireRemaining: tireRemaining,
+                airFilterRemaining: airFilterRemaining,
+
+                gasType: gasType,
+
                 temperature: weatherVM.temperature,
                 weatherDescription: weatherVM.weatherDescription
             )
@@ -234,8 +304,16 @@ final class AIService {
         currentMileage: Double,
         avgKmPerLiter: Double,
         latestMaintenance: String,
-        temperature: Double?,       // 4️⃣ 新增天氣參數
-        weatherDescription: String? // 4️⃣ 新增天氣參數
+
+        oilRemaining: Double,
+        gearOilRemaining: Double,
+        tireRemaining: Double,
+        airFilterRemaining: Double,
+
+        gasType: String,
+
+        temperature: Double?,
+        weatherDescription: String?
     ) async throws -> String {
         
         // 將天氣資訊格式化，處理可能沒有網路或沒有設定 API Key 的情況
@@ -248,14 +326,67 @@ final class AIService {
         
         // 5️⃣ 更新 Prompt 指令
         let prompt = """
-        你是一位專業的台灣機車保養顧問。
+        你是一位專業的台灣速克達機車保養顧問。
+        
+                使用繁體中文。
+
+                每一次的內容都不要使用：
+                #
+                ##
+                ###
+                *
+                -
+                •
+                每一次的內容都不要使用 Markdown。
+
+                請直接輸出自然語言。
+
+                格式如下：
+
+                【車況評估】
+                內容
+
+                【油耗分析】
+                內容
+
+                【保養建議】
+                內容
+
+                【天氣與騎乘注意事項】
+                內容
+
+                【近期檢查項目】
+                內容
         
         請根據以下車輛與環境資訊：
         
-        • 目前里程：\(Int(currentMileage)) km
-        • 平均油耗：\(String(format: "%.1f", avgKmPerLiter)) km/L
-        • 最近保養項目：\(latestMaintenance)
-        • 當前天氣：\(weatherContext)
+        • 目前里程：
+        \(Int(currentMileage)) km
+
+        • 平均油耗：
+        \(String(format: "%.1f", avgKmPerLiter)) km/L
+
+        • 偏好油種：
+        \(gasType)
+
+        • 最近保養：
+        \(latestMaintenance)
+
+        • 機油剩餘：
+        \(Int(oilRemaining)) km
+
+        • 齒輪油剩餘：
+        \(Int(gearOilRemaining)) km
+
+        • 輪胎剩餘：
+        \(Int(tireRemaining)) km
+
+        • 空濾剩餘：
+        \(Int(airFilterRemaining)) km
+
+        • 天氣：
+        \(weatherContext)
+        
         
         幫我分析：
         1. 車況評估
@@ -264,7 +395,22 @@ final class AIService {
         4. 基於「當前天氣狀況」的騎乘與注意事項 (若天氣未知則提供一般建議)
         5. 近期建議檢查的項目
         
-        使用繁體中文。
+        若某項耗材剩餘里程低於：
+
+        100 km → 高優先級
+        300 km → 中優先級
+
+        請明確指出。
+
+        依照：
+
+        立即處理
+        近期處理
+        持續觀察
+
+        三個等級整理。
+        
+        
         語氣專業但自然。
         不要太冗長。
         長度約 200-250 字。
