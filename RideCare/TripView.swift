@@ -35,7 +35,7 @@ struct TripView: View {
             }
         }
         .navigationBarHidden(true)
-        // ✨ 當切換晴雨天時，自動觸發 AI 重新推薦
+        // 當切換晴雨天時，自動觸發 AI 重新推薦
         .onChange(of: isRainyDaySelection, initial: true) { _, _ in
             generateAIRecommendations()
         }
@@ -48,7 +48,6 @@ struct TripView: View {
             titleSection
             customSegmentedControl // 晴天/雨天切換
             
-            // ✨ 新增：AI 智慧推薦卡片區塊
             aiRecommendationCard
             
             inputCard // 自定義新增按鈕
@@ -96,7 +95,6 @@ struct TripView: View {
         .padding(4).background(AppTheme.outlineVariant.opacity(0.3)).clipShape(Capsule())
     }
 
-    // MARK: - ✨ 新增：AI 智慧推薦卡片視圖
     private var aiRecommendationCard: some View {
         FloatingCard {
             VStack(alignment: .leading, spacing: 12) {
@@ -115,7 +113,6 @@ struct TripView: View {
                         ProgressView()
                             .controlSize(.small)
                     } else if !aiRecommendations.isEmpty {
-                        // 一鍵全部加入
                         Button(action: addAllAIItems) {
                             Text("全部加入")
                                 .font(.caption)
@@ -136,7 +133,6 @@ struct TripView: View {
                         .foregroundStyle(.secondary)
                         .onTapGesture { generateAIRecommendations() }
                 } else {
-                    // 顯示 AI 推薦的晶片（Chips）
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(aiRecommendations, id: \.self) { itemName in
@@ -187,8 +183,10 @@ struct TripView: View {
                             Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(item.isChecked ? .green : AppTheme.outlineVariant)
                                 .onTapGesture {
-                                    item.isChecked.toggle()
-                                    try? context.save()
+                                    withAnimation(.smooth) {
+                                        item.isChecked.toggle()
+                                        try? context.save()
+                                    }
                                 }
                             
                             Text(item.name)
@@ -198,8 +196,10 @@ struct TripView: View {
                             Spacer()
                             
                             Button(action: {
-                                context.delete(item)
-                                try? context.save()
+                                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                    context.delete(item)
+                                    try? context.save()
+                                }
                             }) {
                                 Image(systemName: "trash")
                                     .font(.subheadline)
@@ -207,6 +207,8 @@ struct TripView: View {
                             }
                         }
                     }
+                    // 💥 關鍵核心：當新裝備卡片被插入畫面時，強制灌入 Pow 爆裂動畫效果
+                    .modifier(PowEffectModifier(themeColor: isRainyDaySelection ? .blue : .orange))
                 }
             }
         }
@@ -216,89 +218,70 @@ struct TripView: View {
     private func addItem() {
         guard !textInput.isEmpty else { return }
         let newItem = EquipmentItem(name: textInput, isRainyDay: isRainyDaySelection)
-        context.insert(newItem)
-        try? context.save()
+        
+        // 🌟 透過強大的彈簧動畫包裹 SwiftData 資料流，讓畫面排版順暢位移
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+            context.insert(newItem)
+            try? context.save()
+        }
         textInput = ""
     }
     
-    // ✨ 新增：單個加入 AI 推薦裝備
     private func addSingleAIItem(name: String) {
-        // 防呆：如果裝備庫中已經有同名的，就不重複加入
         guard !filteredItems.contains(where: { $0.name == name }) else { return }
         
         let newItem = EquipmentItem(name: name, isRainyDay: isRainyDaySelection)
-        context.insert(newItem)
-        try? context.save()
         
-        // 從推薦列表中移除已加入的
-        withAnimation {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+            context.insert(newItem)
+            try? context.save()
             aiRecommendations.removeAll { $0 == name }
         }
     }
     
-    // ✨ 新增：批次加入所有 AI 推薦裝備
     private func addAllAIItems() {
-        for name in aiRecommendations {
-            if !filteredItems.contains(where: { $0.name == name }) {
-                let newItem = EquipmentItem(name: name, isRainyDay: isRainyDaySelection)
-                context.insert(newItem)
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.65)) {
+            for name in aiRecommendations {
+                if !filteredItems.contains(where: { $0.name == name }) {
+                    let newItem = EquipmentItem(name: name, isRainyDay: isRainyDaySelection)
+                    context.insert(newItem)
+                }
             }
-        }
-        try? context.save()
-        withAnimation {
+            try? context.save()
             aiRecommendations.removeAll()
         }
     }
     
     // MARK: - ✨ Apple Foundation Model
     private func generateAIRecommendations() {
-
         isAILoading = true
         aiRecommendations.removeAll()
 
         Task {
-
             do {
-
-                let items =
-                    try await RideCareAIManager.shared
-                        .generateRecommendations(
-                            isRainyDay: isRainyDaySelection
-                        )
-
+                let items = try await RideCareAIManager.shared.generateRecommendations(isRainyDay: isRainyDaySelection)
                 await MainActor.run {
-
-                    aiRecommendations =
-                        items.filter { item in
-                            !filteredItems.contains {
-                                $0.name == item
-                            }
+                    withAnimation(.easeInOut) {
+                        aiRecommendations = items.filter { item in
+                            !filteredItems.contains { $0.name == item }
                         }
-
-                    isAILoading = false
+                        isAILoading = false
+                    }
                 }
-
             } catch {
-
-                let fallbackItems =
-                    getSmartFallbackRecommendations()
-
+                let fallbackItems = getSmartFallbackRecommendations()
                 await MainActor.run {
-
-                    aiRecommendations =
-                        fallbackItems.filter { item in
-                            !filteredItems.contains {
-                                $0.name == item
-                            }
+                    withAnimation(.easeInOut) {
+                        aiRecommendations = fallbackItems.filter { item in
+                            !filteredItems.contains { $0.name == item }
                         }
-
-                    isAILoading = false
+                        isAILoading = false
+                    }
                 }
             }
         }
     }
     
-    // 💡 智慧離線推薦池（當 AI 尚未解析完成前，依據當前狀態提供高水準的裝備池組合）
     private func getSmartFallbackRecommendations() -> [String] {
         if isRainyDaySelection {
             return ["防水背包套", "安全帽除霧劑", "防水手套", "雨鞋"].shuffled().prefix(3).map { String($0) }
@@ -308,6 +291,51 @@ struct TripView: View {
     }
 }
 
-#Preview {
-    TripView()
+// MARK: - 💥 ✨ Pow 爆裂動態修飾器與粒子發射器
+struct PowEffectModifier: ViewModifier {
+    var themeColor: Color = .purple
+    
+    @State private var animateParticle = false
+    @State private var animateScale = false
+    @State private var animateFlash = false
+    
+    func body(content: Content) -> some View {
+        content
+            // 1. 卡片本身的強力高頻彈簧進場（從 0.6 擴散至 1.0）
+            .scaleEffect(animateScale ? 1.0 : 0.6)
+            .shadow(color: themeColor.opacity(animateFlash ? 0 : 0.15), radius: animateFlash ? 0 : 10)
+            .overlay(
+                ZStack {
+                    // 2. 震撼擊發的擴散擊穿圓環（Shockwave Ring）
+                    Circle()
+                        .stroke(themeColor.opacity(animateParticle ? 0 : 0.6), lineWidth: 3)
+                        .frame(width: animateParticle ? 120 : 10)
+                    
+                    // 3. 💥 周圍向外擴散、縮小並淡出的 8 顆漫畫風粒子
+                    ForEach(0..<8, id: \.self) { index in
+                        Circle()
+                            .fill(themeColor.opacity(animateParticle ? 0 : 0.8))
+                            // 隨著擴散，粒子本身會縮小成星點
+                            .frame(width: animateParticle ? 3 : 8, height: animateParticle ? 3 : 8)
+                            // 依據索引角計算分佈
+                            .offset(x: animateParticle ? 75 : 0)
+                            .rotationEffect(.degrees(Double(index) * 45))
+                    }
+                }
+            )
+            .onAppear {
+                // 執行卡片彈回 Spring 動畫
+                withAnimation(.spring(response: 0.32, dampingFraction: 0.52, blendDuration: 0)) {
+                    animateScale = true
+                }
+                // 執行粒子向外爆炸擴散動畫
+                withAnimation(.easeOut(duration: 0.45)) {
+                    animateParticle = true
+                }
+                // 執行外發光一閃而逝的淡出
+                withAnimation(.easeInOut(duration: 0.5)) {
+                    animateFlash = true
+                }
+            }
+    }
 }
