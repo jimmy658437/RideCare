@@ -20,7 +20,12 @@ struct ThemeOption: Hashable {
 struct HomeView: View {
     @Environment(\.modelContext) private var context
     // 撈取全部裝備以便即時連動
+
     @Query private var allEquipments: [EquipmentItem]
+
+    //openWeatherAPIKey 輸入
+    @State private var showWeatherSheet = false
+    @AppStorage("openWeatherAPIKey") private var openWeatherAPIKey: String = ""
 
     @State private var showSettings = false
     @State private var showUpdateMileage = false
@@ -67,7 +72,11 @@ struct HomeView: View {
 
                     headerView
 
-                    weatherCard
+                    WeatherCardView(
+                        openWeatherAPIKey: $openWeatherAPIKey,
+                        homeCity: $homeCity,
+                        weatherVM: weatherVM
+                    )
 
                     mergedMileageCard  // 整合里程數與保養進度
 
@@ -83,6 +92,23 @@ struct HomeView: View {
         .task {
             weatherVM.city = homeCity
             await weatherVM.fetchWeather()
+        }
+        // 🌟 新增：監聽天氣描述改變，自動切換晴雨天裝備
+        .onChange(of: weatherVM.weatherDescription) { _, newDescription in
+            if let desc = newDescription?.lowercased() {
+                // 判斷描述中是否包含下雨相關關鍵字
+                if desc.contains("雨") || desc.contains("rain")
+                    || desc.contains("drizzle") || desc.contains("thunderstorm")
+                {
+                    withAnimation {
+                        isRainyDaySelection = true  // 自動切換雨天裝備
+                    }
+                } else {
+                    withAnimation {
+                        isRainyDaySelection = false  // 自動切換晴天裝備
+                    }
+                }
+            }
         }
         .sheet(isPresented: $showSettings) {
             SettingsSheet().modelContext(context)
@@ -111,9 +137,10 @@ struct HomeView: View {
             }
 
             Spacer()
-            Text("R i d e C a r e").font(.title2).fontWeight(.bold).foregroundStyle(
-                primaryThemeColor
-            )
+            Text("R i d e C a r e").font(.title2).fontWeight(.bold)
+                .foregroundStyle(
+                    primaryThemeColor
+                )
             Spacer()
             Button(action: { showSettings = true }) {
                 Image(systemName: "gearshape.fill").font(.title2)
@@ -160,13 +187,18 @@ struct HomeView: View {
             }
 
             // 總里程與更新按鈕
-            HStack(alignment: .bottom, spacing: 4) {
-                Text("\(Int(currentMileage))")
-                    .font(.system(size: 48, weight: .bold, design: .rounded))
-                    .foregroundStyle(primaryThemeColor)
-                Text("km").font(.title3).foregroundStyle(
-                    AppTheme.onSurfaceVariant
-                ).padding(.bottom, 8)
+            HStack(alignment: .center, spacing: 4) {
+                HStack(alignment: .bottom, spacing: 4) {
+                    Text("\(Int(currentMileage))")
+                        .font(
+                            .system(size: 48, weight: .bold, design: .rounded)
+                        )
+                        .foregroundStyle(primaryThemeColor)
+
+                    Text("km").font(.title3).foregroundStyle(
+                        AppTheme.onSurfaceVariant
+                    ).padding(.bottom, 8)
+                }
 
                 Spacer()
 
@@ -241,120 +273,6 @@ struct HomeView: View {
                 }
                 newMileageInput = ""
             }
-        }
-    }
-
-    private var weatherCard: some View {
-        VStack {
-            if UserDefaults.standard.string(forKey: "openWeatherAPIKey")?
-                .isEmpty ?? true
-            {
-                ContentUnavailableView(
-                    "尚未設定 API Key",
-                    systemImage: "key.fill",
-                    description: Text("請到設定頁面輸入 OpenWeatherMap API Key")
-                )
-            } else {
-                HStack(alignment: .center, spacing: 20) {
-                    // 左側：Icon 與 溫度
-                    VStack {
-                        if let icon = weatherVM.weatherIcon {
-                            AsyncImage(
-                                url: URL(
-                                    string:
-                                        "https://openweathermap.org/img/wn/\(icon)@2x.png"
-                                )
-                            ) { image in
-                                image.resizable().scaledToFit()
-                            } placeholder: {
-                                ProgressView()
-                            }
-                            .frame(width: 50, height: 50)
-                        }
-                        if let temp = weatherVM.temperature {
-                            Text("\(String(format: "%.1f", temp))°C")
-                                .font(
-                                    .system(
-                                        size: 32,
-                                        weight: .bold,
-                                        design: .rounded
-                                    )
-                                )
-                                .foregroundStyle(.white)
-                        }
-                        if let desc = weatherVM.weatherDescription {
-                            Text(desc).font(.caption).foregroundStyle(
-                                .white.opacity(0.9)
-                            )
-                        }
-                    }
-
-                    Spacer()
-
-                    // 右側：地區與詳細資訊
-                    VStack(alignment: .trailing, spacing: 8) {
-                        Text(weatherVM.city).font(.headline).foregroundStyle(
-                            .white
-                        )
-
-                        HStack(spacing: 12) {
-                            Label(
-                                "\(String(format: "%.1f", weatherVM.feelsLikeTemperature ?? 0))°",
-                                systemImage: "thermometer"
-                            )
-                            Label(
-                                "\(weatherVM.humidity ?? 0)%",
-                                systemImage: "humidity"
-                            )
-                            Label(
-                                "\(String(format: "%.1f", weatherVM.windSpeed ?? 0))",
-                                systemImage: "wind"
-                            )
-                        }
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.9))
-                    }
-                }
-            }
-        }
-        .padding(20)
-        .background(getWeatherGradient(icon: weatherVM.weatherIcon ?? ""))
-        .clipShape(RoundedRectangle(cornerRadius: 24))
-        .shadow(color: Color.black.opacity(0.05), radius: 8, x: 0, y: 4)
-    }
-
-    // 依據天氣 Icon 動態給予漸層背景
-    private func getWeatherGradient(icon: String) -> LinearGradient {
-        let isDay = icon.contains("d")
-        let isRain =
-            icon.contains("09") || icon.contains("10") || icon.contains("11")
-        let isCloudy =
-            icon.contains("02") || icon.contains("03") || icon.contains("04")
-
-        if isRain {
-            return LinearGradient(
-                colors: [.gray, .blue.opacity(0.8)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else if isCloudy {
-            return LinearGradient(
-                colors: [.blue.opacity(0.6), .gray.opacity(0.6)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else if isDay {
-            return LinearGradient(
-                colors: [.orange, .blue.opacity(0.7)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        } else {
-            return LinearGradient(
-                colors: [.gray.opacity(0.2), .black.opacity(0.25)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
         }
     }
 
@@ -482,6 +400,7 @@ struct HomeView: View {
         default: return "晚安"
         }
     }
+    
 }
 
 // MARK: - 系統設定頁面
@@ -497,12 +416,14 @@ struct SettingsSheet: View {
     @AppStorage("maintenanceInterval") private var maintenanceInterval = 1000.0
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
     @AppStorage("homeCity") private var homeCity = "Taipei"
-    @AppStorage("openWeatherAPIKey") private var openWeatherAPIKey = ""
 
     // 機車偏好設定參數
     @AppStorage("gasType") private var gasType = "95 無鉛汽油"
     @AppStorage("tireInterval") private var tireInterval = 10000.0
     @AppStorage("airFilterInterval") private var airFilterInterval = 5000.0
+
+    // 🌟 新增：OpenWeather API Key 的儲存狀態
+    @AppStorage("openWeatherAPIKey") private var openWeatherAPIKey = ""
 
     @State private var birthdaySelection = Date()
     @State private var photoItem: PhotosPickerItem?
@@ -510,7 +431,6 @@ struct SettingsSheet: View {
     let gasOptions = ["92 無鉛汽油", "95 無鉛汽油", "98 無鉛汽油"]
 
     let themeOptions: [ThemeOption] = [
-        // 👇 1. hex 改為 "Default" 對應預設儲存值。2. color 改為 AppTheme.primary
         ThemeOption(name: "預設", hex: "Default", color: AppTheme.primary),
         ThemeOption(name: "莓果紅", hex: "#D8626E", color: Color(hex: "#D8626E")),
         ThemeOption(name: "湖水綠", hex: "#32A89C", color: Color(hex: "#32A89C")),
@@ -701,33 +621,37 @@ struct SettingsSheet: View {
                     .padding(.vertical, 4)
                 }
 
-                Section("居住地與天氣") {
-                    Picker("天氣地區", selection: $homeCity) {
-                        Text("Taipei").tag("Taipei")
-                        Text("New Taipei").tag("New Taipei")
-                        Text("Taoyuan").tag("Taoyuan")
-                        Text("Hsinchu").tag("Hsinchu")
-                        Text("Taichung").tag("Taichung")
-                        Text("Tainan").tag("Tainan")
-                        Text("Kaohsiung").tag("Kaohsiung")
-                    }
+                // 🌟 新增：天氣 API 設定區塊
+                Section(
+                    header: Text("天氣服務"),
+                    footer: Text("刪除 API Key 後，首頁天氣模組將恢復為「尚未設定」的狀態。")
+                ) {
+                    HStack {
+                        Text("OpenWeather API")
+                        Spacer()
 
-                    SecureField("輸入 API Key", text: $openWeatherAPIKey)
-
-                    Text("可至 OpenWeatherMap 官網申請免費 API Key")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-
-                    if !openWeatherAPIKey.isEmpty {
-                        Label("已儲存", systemImage: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
+                        if openWeatherAPIKey.isEmpty {
+                            Text("未設定")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Button(role: .destructive) {
+                                // 🌟 點擊後清空 API Key
+                                withAnimation {
+                                    openWeatherAPIKey = ""
+                                }
+                            } label: {
+                                Text("刪除 API Key")
+                            }
+                        }
                     }
                 }
             }
             .navigationTitle("系統設定")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                Button("完成") { dismiss() }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { dismiss() }
+                }
             }
             .onAppear {
                 let formatter = DateFormatter()

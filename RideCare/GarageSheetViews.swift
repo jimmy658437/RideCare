@@ -10,9 +10,6 @@ import SwiftUI
 import SwiftData
 
 // MARK: - AddFuelSheet
-import SwiftUI
-import SwiftData
-
 struct AddFuelSheet: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
