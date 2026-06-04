@@ -20,10 +20,22 @@ struct AddFuelSheet: View {
     // 接收外部傳入的油價服務
     var fuelService: FuelPriceService
     
-    // 🌟 全域里程變數 (與 HomeView 連動)
+    // 全域里程變數 (與 HomeView 連動)
     @AppStorage("currentMileage") private var globalCurrentMileage = 13500.0
-    // 🌟 引入設定頁的偏好油種
+    // 引入設定頁的偏好油種
     @AppStorage("gasType") private var preferredGasType = "95 無鉛汽油"
+    
+    // 🌟 主題色同步：讀取與首頁、設定頁相同的 AppStorage 快取
+    @AppStorage("themeColorHex") private var themeColorHex = "Default"
+    
+    // 🌟 計算當前的主題顏色
+    private var primaryThemeColor: Color {
+        if themeColorHex == "Default" {
+            return AppTheme.primary // 你的預設深藍色
+        } else {
+            return Color(hex: themeColorHex)
+        }
+    }
     
     @State private var date = Date()
     @State private var mileage = ""
@@ -35,8 +47,13 @@ struct AddFuelSheet: View {
             Form {
                 Section("加油詳情") {
                     DatePicker("紀錄日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                    TextField("目前總里程數 (km)", text: $mileage).keyboardType(.decimalPad)
-                    TextField("加油公升數 (L)", text: $liters).keyboardType(.decimalPad)
+                        .tint(primaryThemeColor) // 讓彈出的日曆/時間轉盤符合主題色
+                    
+                    TextField("目前總里程數 (km)", text: $mileage)
+                        .keyboardType(.decimalPad)
+                    
+                    TextField("加油公升數 (L)", text: $liters)
+                        .keyboardType(.decimalPad)
                     
                     Picker("汽油種類", selection: $fuelType) {
                         Text("92").tag("92")
@@ -44,17 +61,20 @@ struct AddFuelSheet: View {
                         Text("98").tag("98")
                     }
                     .pickerStyle(.segmented)
-                    // 支援全局強調色
-                    .tint(.accentColor)
+                    // 🌟 分段選擇器套用全域主題色
+                    .tint(primaryThemeColor)
                 }
             }
             .navigationTitle("新增加油紀錄")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // 左側取消按鈕
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
-                        .tint(.primary) // 取消按鈕保持中性色
+                        .foregroundStyle(.secondary) // 保持中性色
                 }
+                
+                // 右側儲存按鈕
                 ToolbarItem(placement: .confirmationAction) {
                     Button("儲存") {
                         let currentMileage = Double(mileage) ?? 0
@@ -92,22 +112,26 @@ struct AddFuelSheet: View {
                         try? context.save()
                         dismiss()
                     }
-                    .font(.headline)
-                    .tint(.accentColor) // 儲存按鈕套用全局強調色
+                    .fontWeight(.bold)
+                    .foregroundStyle(primaryThemeColor) // 🌟 儲存按鈕套用全域主題色
                 }
             }
             .onAppear {
-                // 🌟 修正 Picker 預設選擇：精準擷取設定值的字首
+                // 修正 Picker 預設選擇：精準擷取設定值的字首
                 let prefix = String(preferredGasType.prefix(2))
                 if ["92", "95", "98"].contains(prefix) {
                     fuelType = prefix
+                }
+                
+                // 💡 貼心優化：進入頁面時，自動幫忙預填當前的總里程數
+                if mileage.isEmpty {
+                    mileage = String(Int(globalCurrentMileage))
                 }
             }
         }
         .presentationDetents([.medium])
     }
 }
-
 // 定義零件結構
 struct BikePart: Identifiable {
     let id = UUID()
@@ -116,8 +140,6 @@ struct BikePart: Identifiable {
     let category: String
 }
 
-import SwiftUI
-import SwiftData
 
 struct AddMaintenanceSheet: View {
     @Environment(\.modelContext) private var context
@@ -126,15 +148,27 @@ struct AddMaintenanceSheet: View {
     // 🌟 1. 加入全域里程變數 (與 HomeView 即時連動)
     @AppStorage("currentMileage") private var globalCurrentMileage = 13500.0
     
+    // 🌟 2. 主題色同步：讀取與其他頁面相同的快取
+    @AppStorage("themeColorHex") private var themeColorHex = "Default"
+    
+    // 計算當前的主題顏色
+    private var primaryThemeColor: Color {
+        if themeColorHex == "Default" {
+            return AppTheme.primary // 原本預設的主題色
+        } else {
+            return Color(hex: themeColorHex)
+        }
+    }
+    
     @State private var date = Date()
     @State private var mileage = ""
     @State private var cost = ""
     
-    // 🌟 選取零件的狀態 (可多選)
+    // 選取零件的狀態 (可多選)
     @State private var selectedParts: Set<String> = []
     @State private var customItem = ""
     
-    // 🌟 依照第一張圖精準建立的四大系統資料
+    // 依照第一張圖精準建立的四大系統資料
     let categorizedParts = [
         "引擎保養": [
             BikePart(name: "機油", icon: "oilcan.fill", category: "引擎保養"),
@@ -173,8 +207,13 @@ struct AddMaintenanceSheet: View {
             Form {
                 Section("保養詳情") {
                     DatePicker("紀錄日期", selection: $date, displayedComponents: [.date, .hourAndMinute])
-                    TextField("當前里程數 (km)", text: $mileage).keyboardType(.decimalPad)
-                    TextField("總花費金額 (NT$)", text: $cost).keyboardType(.numberPad)
+                        .tint(primaryThemeColor) // 🌟 同步日曆選擇器顏色
+                    
+                    TextField("當前里程數 (km)", text: $mileage)
+                        .keyboardType(.decimalPad)
+                    
+                    TextField("總花費金額 (NT$)", text: $cost)
+                        .keyboardType(.numberPad)
                 }
                 
                 Section("更換零件選擇") {
@@ -184,10 +223,10 @@ struct AddMaintenanceSheet: View {
                             Text(category)
                                 .font(.caption)
                                 .fontWeight(.bold)
-                                .foregroundStyle(AppTheme.primary)
+                                .foregroundStyle(primaryThemeColor) // 🌟 同步分類標題顏色
                                 .padding(.top, 6)
                             
-                            // 🌟 零件網格小卡片 (參考圖 2 精緻樣式)
+                            // 零件網格小卡片
                             if let parts = categorizedParts[category] {
                                 LazyVGrid(columns: columns, spacing: 12) {
                                     ForEach(parts) { part in
@@ -210,13 +249,15 @@ struct AddMaintenanceSheet: View {
                                             }
                                             .frame(maxWidth: .infinity)
                                             .padding(.vertical, 14)
-                                            // 🌟 點選時背景變成淺藍色，未選取時為原主題底色
-                                            .background(isSelected ? AppTheme.primaryContainer : AppTheme.surfaceContainerLowest)
-                                            .foregroundStyle(isSelected ? AppTheme.primary : AppTheme.onSurface)
+                                            // 🌟 點選時背景變成「主題色的 15% 透明度」，未選取時維持原底色
+                                            .background(isSelected ? primaryThemeColor.opacity(0.15) : AppTheme.surfaceContainerLowest)
+                                            // 🌟 文字與圖標顏色同步主題色
+                                            .foregroundStyle(isSelected ? primaryThemeColor : AppTheme.onSurface)
                                             .clipShape(RoundedRectangle(cornerRadius: 14))
                                             .overlay(
                                                 RoundedRectangle(cornerRadius: 14)
-                                                    .stroke(isSelected ? AppTheme.primary.opacity(0.5) : AppTheme.outlineVariant.opacity(0.4), lineWidth: 1)
+                                                    // 🌟 邊框顏色同步主題色
+                                                    .stroke(isSelected ? primaryThemeColor.opacity(0.5) : AppTheme.outlineVariant.opacity(0.4), lineWidth: 1)
                                             )
                                         }
                                         .buttonStyle(PlainButtonStyle()) // 防呆：避免 Form 點擊衝突
@@ -236,12 +277,13 @@ struct AddMaintenanceSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
+                        .foregroundStyle(.secondary) // 保持中性色
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("儲存") {
                         let currentMileage = Double(mileage) ?? 0
                         
-                        // 🌟 2. 核心邏輯：判斷輸入的里程是否比全域里程高，如果是就覆蓋更新
+                        // 核心邏輯：判斷輸入的里程是否比全域里程高，如果是就覆蓋更新
                         if currentMileage > globalCurrentMileage {
                             globalCurrentMileage = currentMileage
                         }
@@ -255,7 +297,7 @@ struct AddMaintenanceSheet: View {
                         
                         let newRecord = MaintenanceRecord(
                             date: date,
-                            mileage: currentMileage, // 這裡存入剛轉換好的數值
+                            mileage: currentMileage,
                             item: combinedString.isEmpty ? "未指定項目" : combinedString,
                             cost: Double(cost) ?? 0
                         )
@@ -263,6 +305,8 @@ struct AddMaintenanceSheet: View {
                         try? context.save()
                         dismiss()
                     }
+                    .fontWeight(.bold)
+                    .foregroundStyle(primaryThemeColor) // 🌟 儲存按鈕同步主題色
                 }
             }
         }

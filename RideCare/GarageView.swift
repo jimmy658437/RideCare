@@ -48,6 +48,9 @@ struct GarageView: View {
     @State private var showAddFuel = false
     @State private var showAddMaintenance = false
     
+    // 🌟 控制 FAB 動畫的狀態
+    @State private var showFAB = false
+    
     @State private var fuelService = FuelPriceService()
     
     var body: some View {
@@ -91,6 +94,9 @@ struct GarageView: View {
             }
             .padding(.trailing, 20)
             .padding(.bottom, 20)
+            // 🌟 加入 FAB 縮放與透明度動畫效果
+            .scaleEffect(showFAB ? 1 : 0.001)
+            .opacity(showFAB ? 1 : 0)
         }
         .navigationBarHidden(true)
         .sheet(isPresented: $showAddFuel) {
@@ -104,6 +110,15 @@ struct GarageView: View {
             if fuelService.prices.isEmpty {
                 await fuelService.fetchPrices()
             }
+        }
+        // 🌟 畫面出現時觸發 Spring 動畫，消失時重置狀態
+        .onAppear {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.6, blendDuration: 0)) {
+                showFAB = true
+            }
+        }
+        .onDisappear {
+            showFAB = false
         }
     }
     
@@ -411,7 +426,6 @@ struct GarageView: View {
         .changeEffect(.shine, value: maintenanceRecords.count)
     }
 }
-
 // MARK: - 獨立的油價卡片視圖 (已完美同步全域主題色)
 struct FuelPriceCard: View {
     let name: String
