@@ -208,9 +208,30 @@ struct TripView: View {
                             Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                                 .foregroundStyle(item.isChecked ? .green : AppTheme.outlineVariant)
                                 .onTapGesture {
+                                    // 1. 原本的點擊切換邏輯
                                     withAnimation(.smooth) {
                                         item.isChecked.toggle()
                                         try? context.save()
+                                    }
+                                    
+                                    // 2. 🌟 新增：如果狀態變成「已勾選」，啟動自動取消計時器
+                                    if item.isChecked {
+                                        Task {
+                                            // 等待 3 秒 (你可以自行把 3 換成你想要的秒數)
+                                            try? await Task.sleep(for: .seconds(600))
+                                            
+                                            // 確保 UI 更新和資料庫存檔回到「主執行緒」執行，避免閃退或錯誤
+                                            await MainActor.run {
+                                                // 雙重檢查：確保經過 3 秒後，它「還是」勾選狀態
+                                                // (避免使用者在 3 秒內自己手動點擊取消了)
+                                                if item.isChecked {
+                                                    withAnimation(.smooth) {
+                                                        item.isChecked = false
+                                                        try? context.save()
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             

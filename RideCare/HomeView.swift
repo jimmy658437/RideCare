@@ -441,8 +441,30 @@ struct HomeView: View {
                         }
                         .contentShape(Rectangle())
                         .onTapGesture {
-                            gear.isChecked.toggle()
-                            try? context.save()
+                            // 1. 點擊切換邏輯 (補上動畫讓視覺更滑順)
+                            withAnimation(.smooth) {
+                                gear.isChecked.toggle()
+                                try? context.save()
+                            }
+                            
+                            // 2. 🌟 自動取消勾選的計時器邏輯
+                            if gear.isChecked {
+                                Task {
+                                    // 設定等待秒數 (這裡一樣預設 3 秒，可依需求更改)
+                                    try? await Task.sleep(for: .seconds(600))
+                                    
+                                    // 確保 UI 更新回到主執行緒
+                                    await MainActor.run {
+                                        // 雙重檢查：確認 3 秒後依然是勾選狀態
+                                        if gear.isChecked {
+                                            withAnimation(.smooth) {
+                                                gear.isChecked = false
+                                                try? context.save()
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
                 }
