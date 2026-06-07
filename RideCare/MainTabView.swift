@@ -35,14 +35,14 @@ struct MainTabView: View {
                 GarageView()
             }
             .tabItem {
-                Label("車庫", systemImage: "scooter")
+                Label("車庫", systemImage: "motorcycle.fill")
             }
             
             NavigationStack {
                 TripView()
             }
             .tabItem {
-                Label("裝備", systemImage: "bag.fill")
+                Label("裝備", systemImage: "checklist")
             }
         }
         // 🌟 3. 將原本固定的顏色替換為動態主題色

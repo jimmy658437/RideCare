@@ -9,12 +9,22 @@ import PhotosUI  // 引入相簿圖片選擇套件
 import Pow  // 引入 Pow 動畫套件
 import SwiftData
 import SwiftUI
+import UniformTypeIdentifiers
 
 // MARK: - 主題選項結構
 struct ThemeOption: Hashable {
     let name: String
     let hex: String
     let color: Color
+}
+
+enum HomeWidget: String, Identifiable, CaseIterable, Codable {
+    case weather
+    case mileage
+    case aiAdvisor
+    case gear
+    
+    var id: String { self.rawValue }
 }
 
 struct HomeView: View {
@@ -35,6 +45,30 @@ struct HomeView: View {
 
     // 控制呼吸光暈的狀態
     @State private var isCriticalGlow = false
+    
+    @State private var widgetOrder: [HomeWidget] = []
+    @State private var draggingItem: HomeWidget? // 紀錄目前正在被拖曳的物件
+    @AppStorage("widgetOrder")
+    private var widgetOrderData: Data = Data()
+
+    // 用來根據 Enum 產生對應畫面的 Function
+    @ViewBuilder
+    private func buildWidget(_ widget: HomeWidget) -> some View {
+        switch widget {
+        case .weather:
+            WeatherCardView(
+                openWeatherAPIKey: $openWeatherAPIKey,
+                homeCity: $homeCity,
+                weatherVM: weatherVM
+            )
+        case .mileage:
+            mergedMileageCard
+        case .aiAdvisor:
+            aiAdvisorButton
+        case .gear:
+            gearChecklistCard
+        }
+    }
 
     // AppStorage 全域快取設定
     @AppStorage("username") private var username = "使用者"
@@ -48,6 +82,7 @@ struct HomeView: View {
     @AppStorage("selectedWeatherTab") private var isRainyDaySelection = false  // 晴雨天狀態保存
     @AppStorage("userBirthdayString") private var userBirthdayString = "01-01"
     @AppStorage("homeCity") private var homeCity = "Taipei"
+    
 
     // 篩選當前天氣選中的裝備
     var currentGearList: [EquipmentItem] {
@@ -86,20 +121,28 @@ struct HomeView: View {
                 }
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
-
+                    
+                    // 建議 Header 固定在最上面，不要參與排序
                     headerView
                     
-                    WeatherCardView(
-                        openWeatherAPIKey: $openWeatherAPIKey,
-                        homeCity: $homeCity,
-                        weatherVM: weatherVM
-                    )
-
-                    mergedMileageCard  // 整合里程數與保養進度
-
-                    aiAdvisorButton
-
-                    gearChecklistCard
+                    // 下方的卡片依照陣列順序生成
+                    ForEach(widgetOrder) { widget in
+                        buildWidget(widget)
+                        // 1. 長按時觸發拖曳
+                            .onDrag {
+                                self.draggingItem = widget
+                                return NSItemProvider(object: widget.rawValue as NSString)
+                            }
+                        // 2. 經過其他物件時觸發位置交換
+                            .onDrop(
+                                of: [UTType.plainText],
+                                delegate: WidgetDropDelegate(
+                                    item: widget,
+                                    items: $widgetOrder,
+                                    draggedItem: $draggingItem
+                                )
+                            )
+                    }
                 }
                 .padding(.horizontal, 20)
                 .padding(.bottom, 20)
@@ -107,9 +150,13 @@ struct HomeView: View {
         }
         .navigationBarHidden(true)
         .task {
+            loadWidgetOrder()
+
             weatherVM.city = homeCity
             await weatherVM.fetchWeather()
         }
+        
+        
         // 🌟 新增：監聽天氣描述改變，自動切換晴雨天裝備
         .onChange(of: weatherVM.weatherDescription) { _, newDescription in
             if let desc = newDescription?.lowercased() {
@@ -132,6 +179,9 @@ struct HomeView: View {
         }
         .sheet(isPresented: $showAIAdvisor) {
             AIAdvisorSheet().modelContext(context)  // 彈出 AI 分析視窗
+        }
+        .onChange(of: widgetOrder) { _, _ in
+            saveWidgetOrder()
         }
     }
 
@@ -183,9 +233,9 @@ struct HomeView: View {
             isCritical ? .red : (isWarning ? .yellow : .green)
         let backgroundColor: Color =
             isCritical
-            ? Color.red.opacity(0.15)
+            ? Color.red.opacity(0.25)
             : (isWarning
-                ? Color.yellow.opacity(0.15) : AppTheme.secondaryContainer)
+                ? Color.yellow.opacity(0.25) : AppTheme.secondaryContainer)
 
         return VStack(alignment: .leading, spacing: 16) {
             // 頂部：問候語與狀態標籤
@@ -235,11 +285,11 @@ struct HomeView: View {
             // 保養進度條
             HStack(spacing: 12) {
                 Image(systemName: "wrench.and.screwdriver").foregroundStyle(
-                    statusColor
+                    .black
                 )
                 Text("距下次保養剩餘 \(Int(remainingKm)) km")
                     .font(.subheadline)
-                    .foregroundStyle(isCritical ? .red : AppTheme.onSurface)
+                    .foregroundStyle(.black)
             }
             ProgressView(
                 value: currentIntervalProgress,
@@ -253,7 +303,7 @@ struct HomeView: View {
         // Pow 呼吸光暈與動畫特效 (僅在狀態不佳時觸發)
         .shadow(
             color: isCritical
-                ? .red.opacity(isCriticalGlow ? 0.8 : 0.0)
+            ? .red.opacity(isCriticalGlow ? 1.0 : 0.0)
                 : Color.black.opacity(0.02),
             radius: isCritical ? (isCriticalGlow ? 15 : 5) : 8,
             x: 0,
@@ -298,7 +348,7 @@ struct HomeView: View {
             HStack(spacing: 12) {
                 Image(systemName: "sparkles")
                     .font(.title3)
-                Text("AI 車況健檢專區")
+                Text("AI 助理專區")
                     .font(.headline)
                 Spacer()
                 Image(systemName: "chevron.right")
@@ -400,6 +450,32 @@ struct HomeView: View {
         }
     }
 
+    private func loadWidgetOrder() {
+        guard !widgetOrderData.isEmpty else {
+            widgetOrder = [.weather, .mileage, .aiAdvisor, .gear]
+            return
+        }
+
+        do {
+            let decoded = try JSONDecoder().decode(
+                [HomeWidget].self,
+                from: widgetOrderData
+            )
+
+            widgetOrder = decoded
+        } catch {
+            widgetOrder = [.weather, .mileage, .aiAdvisor, .gear]
+        }
+    }
+    
+    private func saveWidgetOrder() {
+        do {
+            widgetOrderData = try JSONEncoder().encode(widgetOrder)
+        } catch {
+            print("儲存失敗")
+        }
+    }
+    
     // MARK: - 生日與時間 Greeting 邏輯
     private var greetingTitle: String {
         let formatter = DateFormatter()
@@ -420,6 +496,35 @@ struct HomeView: View {
 
 }
 
+struct WidgetDropDelegate: DropDelegate {
+    let item: HomeWidget
+    @Binding var items: [HomeWidget]
+    @Binding var draggedItem: HomeWidget?
+
+    // 🌟 核心修正：新增這個方法，明確告訴系統這是「移動」操作
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        return DropProposal(operation: .move)
+    }
+
+    func performDrop(info: DropInfo) -> Bool {
+        draggedItem = nil
+        return true
+    }
+
+    func dropEntered(info: DropInfo) {
+        guard let draggedItem = self.draggedItem,
+              draggedItem != item,
+              let from = items.firstIndex(of: draggedItem),
+              let to = items.firstIndex(of: item) else { return }
+
+        withAnimation(.spring()) {
+            self.items.move(
+                fromOffsets: IndexSet(integer: from),
+                toOffset: to > from ? to + 1 : to
+            )
+        }
+    }
+}
 // MARK: - 系統設定頁面
 struct SettingsSheet: View {
     @Environment(\.dismiss) private var dismiss
@@ -457,6 +562,7 @@ struct SettingsSheet: View {
         ThemeOption(name: "丹寧藍", hex: "#5281B9", color: Color(hex: "#5281B9")),
         ThemeOption(name: "焦糖棕", hex: "#B3805B", color: Color(hex: "#B3805B")),
     ]
+    
 
     var body: some View {
         NavigationStack {
@@ -493,7 +599,24 @@ struct SettingsSheet: View {
                         }
                     }
 
-                    TextField("使用者名稱", text: $username)
+                    HStack {
+                        // 左側：標題
+                        Text("使用者名稱")
+                            .foregroundStyle(.black)
+                        
+                        // 右側：輸入框 (設定靠右對齊)
+                        TextField("請輸入名稱", text: $username)
+                            .multilineTextAlignment(.trailing)
+                            .submitLabel(.done) // 將鍵盤上的 return 鍵改成 "完成"
+                        
+                        // 儲存按鈕
+                        Button("儲存") {
+                            // 因為 @AppStorage 已經自動儲存了，這裡主要執行「收起鍵盤」的動作來完成確認
+                            UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        }
+                        .buttonStyle(.bordered) // 給按鈕一個外框，看起來更像可以點擊的按鈕
+                        // .tint(primaryThemeColor) // 如果你想套用你的主題色，可以把這行註解打開
+                    }
 
                     DatePicker(
                         "出生日期",
