@@ -88,7 +88,7 @@ struct HomeView: View {
                 VStack(spacing: 20) {
 
                     headerView
-
+                    
                     WeatherCardView(
                         openWeatherAPIKey: $openWeatherAPIKey,
                         homeCity: $homeCity,

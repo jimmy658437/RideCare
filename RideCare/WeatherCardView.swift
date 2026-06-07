@@ -114,6 +114,7 @@ struct WeatherCardView: View {
 
                     // 右側：地區、重新整理與簡要資訊
                     VStack(alignment: .trailing, spacing: 12) {
+                        
                         HStack(spacing: 12) {
                             Text(getCityNameInChinese(homeCity))
                                 .font(.title3)

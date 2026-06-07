@@ -55,7 +55,26 @@ struct GarageView: View {
     
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
+            
+            // 🌟 替換為帶有光暈效果的背景
             AppTheme.background.ignoresSafeArea()
+                .overlay(alignment: .topTrailing) {  // 預設放在右上角，若要左上角可改為 .topLeading
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    currentThemeColor.opacity(0.5), .clear, // 🌟 使用 currentThemeColor 讓光暈同步主題色
+                                ],  // 調整 0.5 改變光暈強度
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 700  // 控制光暈擴散範圍
+                            )
+                        )
+                        .frame(width: 700, height: 700)  // 光暈的整體大小
+                        .offset(x: 200, y: -80)  // 往外偏移，營造只有邊緣露出來的「圓弧」感
+                        .blur(radius: 100)  // 柔化邊緣，產生微光感
+                        .ignoresSafeArea()
+                }
             
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 20) {
@@ -426,6 +445,7 @@ struct GarageView: View {
         .changeEffect(.shine, value: maintenanceRecords.count)
     }
 }
+
 // MARK: - 獨立的油價卡片視圖 (已完美同步全域主題色)
 struct FuelPriceCard: View {
     let name: String

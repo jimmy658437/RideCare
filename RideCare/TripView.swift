@@ -25,10 +25,35 @@ struct TripView: View {
     var filteredItems: [EquipmentItem] {
         equipments.filter { $0.isRainyDay == isRainyDaySelection }
     }
+    
+    // 動態決定當前主題色，讓背景光暈跟隨晴雨切換
+    private var primaryThemeColor: Color {
+        isRainyDaySelection ? .blue : .orange
+    }
 
     var body: some View {
         ZStack {
+            // 背景與頂部光暈效果
             AppTheme.background.ignoresSafeArea()
+                .overlay(alignment: .topTrailing) {  // 預設放在右上角
+                    Circle()
+                        .fill(
+                            RadialGradient(
+                                colors: [
+                                    primaryThemeColor.opacity(0.3), .clear,
+                                ],  // 調整 0.3 改變光暈強度
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: 700  // 控制光暈擴散範圍
+                            )
+                        )
+                        .frame(width: 700, height: 700)  // 光暈的整體大小
+                        .offset(x: 200, y: -80)  // 往外偏移，營造只有邊緣露出來的「圓弧」感
+                        .blur(radius: 100)  // 柔化邊緣，產生微光感
+                        .ignoresSafeArea()
+                }
+                // 加入動畫，讓顏色切換時更柔和
+                .animation(.easeInOut(duration: 0.5), value: primaryThemeColor)
 
             ScrollView(showsIndicators: false) {
                 viewContent
