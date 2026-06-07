@@ -143,7 +143,7 @@ struct GarageView: View {
     
     private var titleSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("車庫管理").font(.title).fontWeight(.bold).foregroundStyle(
+            Text("愛車管理").font(.title).fontWeight(.bold).foregroundStyle(
                 AppTheme.onSurface
             )
             Text("追蹤您的愛車保養與油耗狀況").font(.subheadline).foregroundStyle(

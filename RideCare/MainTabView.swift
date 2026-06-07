@@ -35,7 +35,7 @@ struct MainTabView: View {
                 GarageView()
             }
             .tabItem {
-                Label("車庫", systemImage: "motorcycle.fill")
+                Label("愛車", systemImage: "motorcycle.fill")
             }
             
             NavigationStack {
