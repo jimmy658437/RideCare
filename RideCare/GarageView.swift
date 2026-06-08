@@ -156,7 +156,7 @@ struct GarageView: View {
     
     private var customSegmentedControl: some View {
         HStack(spacing: 0) {
-            Button("油量紀錄") { selection = 0 }
+            Button("油耗紀錄") { selection = 0 }
                 .frame(maxWidth: .infinity).padding(.vertical, 12)
                 .background(
                     selection == 0
